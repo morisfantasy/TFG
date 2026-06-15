@@ -1,0 +1,7 @@
+pysentimiento
+tf_keras
+protobuf<=3.20.3
+matplotlib
+fastapi
+uvicorn[standard]
+pydantic

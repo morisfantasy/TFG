@@ -1,0 +1,14 @@
+# Entornos virtuales de Python
+venv/
+env/
+.venv/
+
+# Caché de Python
+__pycache__/
+*.pyc
+
+# Archivos generados dinámicamente
+emociones_resultado.json
+
+# Variables de entorno (si las tienes en el futuro)
+.env
