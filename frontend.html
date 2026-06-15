@@ -12,11 +12,11 @@
     <style>
         /* ================= VARIABLES DE COLOR (Tema Relajante) ================= */
         :root {
-            --bg-color: #F0F4F3; /* Gris verdoso muy suave */
+            --bg-color: #F0F4F3;
             --surface-color: #FFFFFF;
-            --primary-color: #7BA098; /* Verde salvia */
+            --primary-color: #7BA098;
             --primary-dark: #62827A;
-            --accent-color: #A5C4D4; /* Azul suave */
+            --accent-color: #A5C4D4;
             --text-main: #334155;
             --text-muted: #64748B;
             --border-color: #E2E8F0;
@@ -24,7 +24,6 @@
             --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
-        /* ================= RESET Y BASE ================= */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -34,17 +33,16 @@
         }
 
         body {
-            background-color: #E5E7EB; /* Fondo oscuro para destacar el móvil en escritorio */
+            background-color: #E5E7EB;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
         }
 
-        /* ================= CONTENEDOR MOBILE-FIRST ================= */
         #app-container {
             width: 100%;
-            max-width: 480px; /* Restricción para escritorio */
+            max-width: 480px;
             height: 100vh;
             max-height: 900px;
             background-color: var(--bg-color);
@@ -55,13 +53,12 @@
             flex-direction: column;
         }
 
-        /* Vistas (Páginas) */
         .screen {
             flex: 1;
             overflow-y: auto;
             padding: 24px;
-            padding-bottom: 90px; /* Espacio para el menú inferior */
-            display: none; /* Oculto por defecto */
+            padding-bottom: 90px;
+            display: none;
             animation: fadeIn 0.3s ease-in-out;
         }
         .screen.active {
@@ -73,7 +70,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ================= COMPONENTES UI ================= */
         h1, h2 { color: var(--text-main); margin-bottom: 8px; }
         p { color: var(--text-muted); line-height: 1.5; margin-bottom: 24px; }
 
@@ -133,7 +129,6 @@
         .btn:active { transform: scale(0.98); }
         .btn:hover { background-color: var(--primary-dark); }
 
-        /* Tarjetas */
         .card {
             background-color: var(--surface-color);
             border-radius: 16px;
@@ -142,11 +137,10 @@
             margin-bottom: 24px;
         }
 
-        /* ================= GRÁFICO DE RUSSELL ================= */
         .chart-wrapper {
             position: relative;
             width: 100%;
-            aspect-ratio: 1; /* Cuadrado perfecto */
+            aspect-ratio: 1;
             margin-top: 16px;
         }
         .quadrant-label {
@@ -160,12 +154,11 @@
             background: rgba(255, 255, 255, 0.8);
             z-index: 10;
         }
-        .q-tl { top: 10%; left: 5%; } /* Estrés */
-        .q-tr { top: 10%; right: 5%; } /* Alerta Positiva */
-        .q-bl { bottom: 15%; left: 5%; } /* Tristeza */
-        .q-br { bottom: 15%; right: 5%; } /* Calma */
+        .q-tl { top: 10%; left: 5%; }
+        .q-tr { top: 10%; right: 5%; }
+        .q-bl { bottom: 15%; left: 5%; }
+        .q-br { bottom: 15%; right: 5%; }
 
-        /* ================= NAVEGACIÓN INFERIOR ================= */
         #bottom-nav {
             position: absolute;
             bottom: 0;
@@ -193,7 +186,6 @@
         .nav-item span { font-size: 12px; font-weight: 600; }
         .nav-item.active { color: var(--primary-color); }
 
-        /* ================= TOAST NOTIFICATION ================= */
         .toast {
             position: absolute;
             top: 20px;
@@ -212,10 +204,6 @@
             text-align: center;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
-
-        /* Pantalla Mascota */
-        .pet-container { text-align: center; margin-top: 50px; }
-        .pet-container i { font-size: 100px; color: var(--primary-color); margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -226,6 +214,7 @@
             <i class="fa-solid fa-check-circle"></i> Registro guardado. ¡Racha +1!
         </div>
 
+        <!-- PANTALLA DE LOGIN / REGISTRO -->
         <div id="login-screen" class="screen active" style="padding-top: 40px;">
             <div class="logo-container">
                 <i class="fa-solid fa-leaf"></i>
@@ -263,8 +252,10 @@
             </button>
         </div>
 
+        <!-- PANTALLA PRINCIPAL (HOME) -->
         <div id="home-screen" class="screen">
-            <h2 style="margin-top: 20px;">¡Hola! 👋</h2>
+            <!-- CAMBIO SOLICITADO: Muestra el nombre con el que te has registrado -->
+            <h2 style="margin-top: 20px;">¡Hola! <span id="user-name-display" style="color: var(--primary-color);">Usuario</span> 👋</h2>
             <p>Bienvenido de nuevo. Así ha sido tu estado emocional en los últimos días.</p>
 
             <div class="card">
@@ -288,6 +279,7 @@
             </div>
         </div>
 
+        <!-- PANTALLA DE REGISTRO EMA -->
         <div id="ema-screen" class="screen">
             <h2 style="margin-top: 20px;">Registro Diario 📝</h2>
             <p>Tómate un respiro. Cierra los ojos 3 segundos y cuéntanos sobre tu momento actual.</p>
@@ -313,19 +305,18 @@
             </form>
         </div>
 
+        <!-- PANTALLA DE MASCOTA MODIFICADA -->
+        <!-- CAMBIO SOLICITADO: Pone simplemente próximamente y una rueda cargando -->
         <div id="pet-screen" class="screen">
-            <h2 style="margin-top: 20px;">Tu Compañero 🐶</h2>
-            
-            <div class="pet-container">
-                <i class="fa-solid fa-dog"></i>
-                <h3 style="margin-bottom: 12px; color: var(--text-main);">¡Guau! Estoy en entrenamiento</h3>
-                <p style="padding: 0 20px;">Aún estoy aprendiendo, pero muy pronto podré hablar contigo mediante Inteligencia Artificial para ayudarte en tu día a día.</p>
-                <div style="background: var(--bg-color); border-radius: 12px; padding: 16px; margin: 20px; font-size: 14px; color: var(--primary-dark); font-weight: bold;">
-                    <i class="fa-solid fa-hammer"></i> Módulo Chatbot NLP en desarrollo...
+            <div style="text-align: center; margin-top: 180px;">
+                <h2 style="font-size: 28px; color: var(--text-main); margin-bottom: 24px;">Próximamente</h2>
+                <div style="font-size: 48px; color: var(--primary-color);">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i>
                 </div>
             </div>
         </div>
 
+        <!-- NAV INFERIOR -->
         <nav id="bottom-nav" style="display: none;">
             <div class="nav-item active" onclick="navigate('home-screen', this)">
                 <i class="fa-solid fa-house"></i>
@@ -344,17 +335,15 @@
     </div>
 
     <script>
-        // Inicialización de Variables Globales
         let historial = [];
-        let diaActual = 0; // 0 = hoy, -1 = ayer, etc.
+        let diaActual = 0; 
         let chartInstance = null;
         let currentUserId = null;
-        let authMode = 'login'; // 'login' o 'registro'
+        let authMode = 'login'; 
 
-        // ¡¡IMPORTANTE: CAMBIA ESTA URL POR TU URL REAL DE DESPLIEGUE EN RAILWAY!!
+        // ¡¡IMPORTANTE: CAMBIA ESTA URL POR TU URL REAL DE DESPLIEGUE EN RAILWAY EN TU ORDENADOR!!
         const API_BASE = 'https://tfg-production-db76.up.railway.app'; 
 
-        // --- CAMBIO DE MODO AUTENTICACIÓN ---
         function toggleAuth(modo) {
             authMode = modo;
             document.getElementById('registro-fields').style.display = modo === 'registro' ? 'block' : 'none';
@@ -365,7 +354,21 @@
             document.getElementById('btn-auth').innerHTML = modo === 'login' ? 'Iniciar Sesión <i class="fa-solid fa-arrow-right"></i>' : 'Registrarse <i class="fa-solid fa-user-plus"></i>';
         }
 
-        // --- LÓGICA DE LOGIN Y REGISTRO ---
+        async function cargarHistorialReal() {
+            try {
+                const response = await fetch(API_BASE + '/api/historial/' + currentUserId);
+                if (response.ok) {
+                    historial = await response.json();
+                    historial.forEach(h => {
+                        h.x = parseFloat(h.x);
+                        h.y = parseFloat(h.y);
+                    });
+                }
+            } catch (e) {
+                console.error("Error cargando historial:", e);
+            }
+        }
+
         async function procesarAuth() {
             const user = document.getElementById('username').value.trim();
             const pass = document.getElementById('password').value;
@@ -397,8 +400,13 @@
                     throw new Error(data.detail || "Error en la autenticación.");
                 }
 
-                // Guardar ID y dar acceso
                 currentUserId = data.usuario_id;
+                
+                // CAMBIO SOLICITADO: Cargar el nombre registrado/logueado de forma dinámica
+                document.getElementById('user-name-display').textContent = data.nombre_usuario || user;
+                
+                await cargarHistorialReal();
+                
                 document.getElementById('bottom-nav').style.display = 'flex';
                 const homeTab = document.querySelector('.nav-item:nth-child(1)');
                 navigate('home-screen', homeTab);
@@ -408,7 +416,6 @@
             }
         }
 
-        // --- LÓGICA DE REGISTRO EMA ---
         async function submitEma(event) {
             event.preventDefault();
             const r1 = document.getElementById('q1').value.trim();
@@ -419,7 +426,7 @@
                 return;
             }
             if (!currentUserId) {
-                alert('Error: Sesión no válida o ID de usuario ausente.');
+                alert('Error: Sesión no válida.');
                 return;
             }
 
@@ -438,24 +445,13 @@
                 if (!response.ok) {
                     throw new Error(`Error del servidor: ${response.status}`);
                 }
-                const data = await response.json();
-
-                // Guardar localmente en el historial visual
-                const ahora = new Date();
-                const fecha = ahora.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'numeric'});
-                historial.push({
-                    fecha: fecha,
-                    x: data.valencia,
-                    y: data.activacion,
-                    emocion: data.emocion_dominante
-                });
-                diaActual = 0; // Resetear vista a hoy
                 
-                // Limpiar formularios
+                await cargarHistorialReal();
+                diaActual = 0; 
+                
                 document.getElementById('q1').value = '';
                 document.getElementById('q2').value = '';
                 
-                // Redirigir a inicio
                 const homeTab = document.querySelector('.nav-item:nth-child(1)');
                 navigate('home-screen', homeTab);
                 renderizarDia();
@@ -469,7 +465,6 @@
             }
         }
 
-        // --- SISTEMA DE NAVEGACION (SPA) ---
         function navigate(screenId, navElement = null) {
             document.querySelectorAll('.screen').forEach(screen => {
                 screen.classList.remove('active');
@@ -481,12 +476,14 @@
                 });
                 navElement.classList.add('active');
             }
-            if (screenId === 'home-screen' && !chartInstance) {
-                initChart();
+            if (screenId === 'home-screen') {
+                if (!chartInstance) {
+                    initChart();
+                }
+                renderizarDia();
             }
         }
 
-        // Navegar entre dias con las flechas
         function navegarDia(delta) {
             const nuevoIndice = diaActual + delta;
             const minIndice = -(historial.length - 1);
@@ -502,10 +499,36 @@
             const label = diaActual === 0 ? 'Hoy' : entrada.fecha;
             document.getElementById('dia-label').textContent = label;
             document.getElementById('emocion-label').textContent = 'Emoción: ' + traducirEmocion(entrada.emocion);
+            
             if (chartInstance) {
-                chartInstance.data.datasets[0].data = [{ x: entrada.x, y: entrada.y }];
+                // Dataset 0: Punto actual (Transparencia completa / Visible)
+                chartInstance.data.datasets[0].data = [{
+                    x: entrada.x,
+                    y: entrada.y,
+                    respuesta_1: entrada.respuesta_1
+                }];
+
+                // CAMBIO SOLICITADO: Cuando estés viendo el gráfico de tu última respuesta (Hoy/diaActual===0), 
+                // se verán con menos opacidad 3 respuestas aleatorias de otros momentos
+                let puntosAleatorios = [];
+                if (diaActual === 0 && historial.length > 1) {
+                    // Coger todos menos el actual
+                    let otrosPuntos = historial.slice(0, historial.length - 1);
+                    // Desordenar aleatoriamente
+                    otrosPuntos.sort(() => 0.5 - Math.random());
+                    // Coger hasta 3
+                    let seleccionados = otrosPuntos.slice(0, 3);
+                    puntosAleatorios = seleccionados.map(p => ({
+                        x: p.x,
+                        y: p.y,
+                        respuesta_1: p.respuesta_1
+                    }));
+                }
+                chartInstance.data.datasets[1].data = puntosAleatorios;
+                
                 chartInstance.update();
             }
+            
             document.getElementById('btn-prev').disabled = (idx === 0);
             document.getElementById('btn-next').disabled = (diaActual === 0);
         }
@@ -524,29 +547,54 @@
             }, 3500);
         }
 
-        // --- GRAFICO CIRCUMPLEJO DE RUSSELL (Chart.js) ---
         function initChart() {
             const ctx = document.getElementById('circumplexChart').getContext('2d');
 
             chartInstance = new Chart(ctx, {
                 type: 'scatter',
                 data: {
-                    datasets: [{
-                        label: 'Estado del dia',
-                        data: [],
-                        backgroundColor: '#7BA098',
-                        borderColor: '#FFFFFF',
-                        borderWidth: 2,
-                        pointRadius: 10,
-                        pointHoverRadius: 12
-                    }]
+                    datasets: [
+                        {
+                            label: 'Estado actual',
+                            data: [],
+                            backgroundColor: '#7BA098',
+                            borderColor: '#FFFFFF',
+                            borderWidth: 2,
+                            pointRadius: 10,
+                            pointHoverRadius: 12
+                        },
+                        {
+                            label: 'Momentos pasados',
+                            data: [],
+                            // CAMBIO SOLICITADO: Menos opacidad para el dataset de historiales
+                            backgroundColor: 'rgba(123, 160, 152, 0.25)', 
+                            borderColor: 'rgba(123, 160, 152, 0.4)',
+                            borderWidth: 1,
+                            pointRadius: 9,
+                            pointHoverRadius: 11
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
-                        tooltip: { enabled: false }
+                        // CAMBIO SOLICITADO: Mostrar información de '¿Qué estás haciendo?' al poner el ratón (hover)
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: 'rgba(51, 65, 85, 0.95)',
+                            titleFont: { family: 'Nunito', size: 12 },
+                            bodyFont: { family: 'Nunito', size: 14, weight: '600' },
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    let rawData = context.raw;
+                                    return "Haciendo: " + (rawData.respuesta_1 || "No registrado");
+                                }
+                            }
+                        }
                     },
                     scales: {
                         x: {
