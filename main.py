@@ -9,6 +9,7 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pysentimiento import create_analyzer
@@ -98,7 +99,7 @@ def login_usuario(user: UsuarioLogin):
 # ── Endpoint principal de Análisis ────────────────────────────────────────────
 @app.post("/api/analizar")
 async def analizar(payload: TextoEMA):
-    # CAMBIO SOLICITADO: El modelo solo analizará la respuesta_2 (¿cómo estás?), la respuesta_1 se guarda pero NO se analiza.
+    # El modelo solo analizará la respuesta_2 (¿cómo estás?), la respuesta_1 se guarda pero NO se analiza.
     texto_limpio = preprocess_tweet(payload.respuesta_2)
     resultado = emotion_analyzer.predict(texto_limpio)
 
@@ -162,6 +163,8 @@ def obtener_historial(usuario_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ── Servir la interfaz gráfica ─────────────────────────────────────────────────
 @app.get("/")
 def root():
-    return {"estado": "API activa con Base de Datos"}
+    # Cuando alguien entre a la URL principal, le mostramos el HTML de la app
+    return FileResponse("frontend.html")
