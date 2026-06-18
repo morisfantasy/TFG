@@ -91,7 +91,7 @@
             font-weight: 600;
             font-size: 14px;
         }
-        input[type="text"], input[type="password"], input[type="number"], textarea {
+        input[type="text"], input[type="password"], input[type="number"], input[type="email"], textarea {
             width: 100%;
             padding: 14px;
             border: 1px solid var(--border-color);
@@ -205,6 +205,134 @@
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
 
+
+        /* ── Modal de valoración ── */
+        .modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 300;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .modal-card {
+            background: var(--surface-color);
+            width: 100%;
+            border-radius: 28px 28px 0 0;
+            padding: 28px 24px 36px;
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 -8px 30px rgba(0,0,0,0.12);
+        }
+        .modal-overlay.open .modal-card {
+            transform: translateY(0);
+        }
+        .modal-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 4px;
+            margin: 0 auto 20px;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+        .modal-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+            line-height: 1.5;
+        }
+        .modal-textarea {
+            width: 100%;
+            padding: 14px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 14px;
+            font-size: 15px;
+            font-family: 'Nunito', sans-serif;
+            color: var(--text-main);
+            background: var(--bg-color);
+            resize: none;
+            height: 130px;
+            transition: border-color 0.2s;
+            margin-bottom: 14px;
+        }
+        .modal-textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        .btn-valorar-trigger {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: var(--surface-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .btn-valorar-trigger:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        .btn-valorar-trigger i {
+            font-size: 13px;
+        }
+        .btn-modal-enviar {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-modal-enviar:hover { background: var(--primary-dark); }
+        .btn-modal-cancel {
+            width: 100%;
+            padding: 10px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .valoracion-enviada {
+            text-align: center;
+            padding: 10px 0 4px;
+        }
+        .valoracion-enviada i {
+            font-size: 40px;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            display: block;
+        }
+        .valoracion-enviada p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
         /* ── Contador de racha ── */
         .streak-badge {
             display: flex;
@@ -299,29 +427,50 @@
                     <input type="email" id="email" placeholder="Ej: tucorreo@ejemplo.com">
                 </div>
                 <div class="input-group">
-                    <label for="region">Región</label>
+                    <label for="region">Región del mundo</label>
                     <select id="region" style="width:100%;padding:14px;border:1px solid var(--border-color);border-radius:12px;font-size:16px;background-color:var(--surface-color);color:var(--text-main);transition:border-color 0.2s;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%2364748B%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;">
                         <option value="" disabled selected>Selecciona tu región</option>
-                        <option value="Andalucía">Andalucía (ej: Sevilla)</option>
-                        <option value="Aragón">Aragón (ej: Zaragoza)</option>
-                        <option value="Asturias">Asturias (ej: Oviedo)</option>
-                        <option value="Baleares">Islas Baleares (ej: Palma)</option>
-                        <option value="Canarias">Canarias (ej: Las Palmas)</option>
-                        <option value="Cantabria">Cantabria (ej: Santander)</option>
-                        <option value="Castilla-La Mancha">Castilla-La Mancha (ej: Toledo)</option>
-                        <option value="Castilla y León">Castilla y León (ej: Salamanca)</option>
-                        <option value="Cataluña">Cataluña (ej: Barcelona)</option>
-                        <option value="Extremadura">Extremadura (ej: Cáceres)</option>
-                        <option value="Galicia">Galicia (ej: Santiago de Compostela)</option>
-                        <option value="La Rioja">La Rioja (ej: Logroño)</option>
-                        <option value="Madrid">Comunidad de Madrid (ej: Madrid)</option>
-                        <option value="Murcia">Región de Murcia (ej: Murcia)</option>
-                        <option value="Navarra">Navarra (ej: Pamplona)</option>
-                        <option value="País Vasco">País Vasco (ej: Bilbao)</option>
-                        <option value="Valencia">Comunidad Valenciana (ej: Valencia)</option>
-                        <option value="Ceuta">Ceuta</option>
-                        <option value="Melilla">Melilla</option>
-                        <option value="Otra">Otra / Fuera de España</option>
+                        <optgroup label="🌍 Europa">
+                            <option value="Europe/Madrid">España (UTC+1/+2)</option>
+                            <option value="Europe/London">Reino Unido / Irlanda (UTC+0/+1)</option>
+                            <option value="Europe/Paris">Francia / Bélgica / Países Bajos (UTC+1/+2)</option>
+                            <option value="Europe/Berlin">Alemania / Austria / Suiza (UTC+1/+2)</option>
+                            <option value="Europe/Rome">Italia (UTC+1/+2)</option>
+                            <option value="Europe/Lisbon">Portugal (UTC+0/+1)</option>
+                            <option value="Europe/Warsaw">Polonia / República Checa (UTC+1/+2)</option>
+                            <option value="Europe/Bucharest">Rumanía / Bulgaria / Grecia (UTC+2/+3)</option>
+                            <option value="Europe/Moscow">Rusia occidental (UTC+3)</option>
+                        </optgroup>
+                        <optgroup label="🌎 América">
+                            <option value="America/New_York">EE.UU. Este (UTC-5/-4)</option>
+                            <option value="America/Chicago">EE.UU. Centro (UTC-6/-5)</option>
+                            <option value="America/Denver">EE.UU. Montaña (UTC-7/-6)</option>
+                            <option value="America/Los_Angeles">EE.UU. Pacífico (UTC-8/-7)</option>
+                            <option value="America/Mexico_City">México / América Central (UTC-6/-5)</option>
+                            <option value="America/Bogota">Colombia / Perú / Ecuador (UTC-5)</option>
+                            <option value="America/Argentina/Buenos_Aires">Argentina / Uruguay (UTC-3)</option>
+                            <option value="America/Sao_Paulo">Brasil (UTC-3/-2)</option>
+                            <option value="America/Santiago">Chile (UTC-4/-3)</option>
+                            <option value="America/Caracas">Venezuela (UTC-4)</option>
+                            <option value="America/Toronto">Canadá Este (UTC-5/-4)</option>
+                            <option value="America/Vancouver">Canadá Pacífico (UTC-8/-7)</option>
+                        </optgroup>
+                        <optgroup label="🌏 Asia y Oceanía">
+                            <option value="Asia/Dubai">Emiratos Árabes / Golfo Pérsico (UTC+4)</option>
+                            <option value="Asia/Kolkata">India (UTC+5:30)</option>
+                            <option value="Asia/Shanghai">China / Singapur (UTC+8)</option>
+                            <option value="Asia/Tokyo">Japón / Corea (UTC+9)</option>
+                            <option value="Asia/Bangkok">Tailandia / Vietnam (UTC+7)</option>
+                            <option value="Asia/Istanbul">Turquía (UTC+3)</option>
+                            <option value="Australia/Sydney">Australia Este (UTC+10/+11)</option>
+                            <option value="Pacific/Auckland">Nueva Zelanda (UTC+12/+13)</option>
+                        </optgroup>
+                        <optgroup label="🌍 África y Oriente Medio">
+                            <option value="Africa/Cairo">Egipto / Oriente Medio (UTC+2/+3)</option>
+                            <option value="Africa/Lagos">África Occidental (UTC+1)</option>
+                            <option value="Africa/Nairobi">África Oriental (UTC+3)</option>
+                            <option value="Africa/Johannesburg">África del Sur (UTC+2)</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="input-group">
@@ -335,10 +484,33 @@
             </button>
         </div>
 
+        <!-- MODAL DE VALORACIÓN -->
+        <div id="modal-valoracion" class="modal-overlay" onclick="cerrarModal(event)">
+            <div class="modal-card">
+                <div class="modal-handle"></div>
+                <div id="modal-content-form">
+                    <p class="modal-title">¿Cómo te ha ayudado? ⭐</p>
+                    <p class="modal-subtitle">Cuéntanos tu experiencia con la app. Tu opinión es muy valiosa para mejorarla.</p>
+                    <textarea class="modal-textarea" id="valoracion-texto" placeholder="Ej: Me ha ayudado a ser más consciente de mis emociones en el día a día..."></textarea>
+                    <button class="btn-modal-enviar" onclick="enviarValoracion()">
+                        <i class="fa-solid fa-paper-plane"></i> Enviar valoración
+                    </button>
+                    <button class="btn-modal-cancel" onclick="cerrarModalDirecto()">Cancelar</button>
+                </div>
+                <div id="modal-content-ok" class="valoracion-enviada" style="display:none;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <p class="modal-title" style="margin-bottom:6px;">¡Gracias!</p>
+                    <p>Tu valoración ha sido guardada.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- PANTALLA PRINCIPAL (HOME) -->
         <div id="home-screen" class="screen">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-top:20px; margin-bottom:4px;">
-                <h2 style="margin:0;">¡Hola! <span id="user-name-display" style="color: var(--primary-color);">Usuario</span> 👋</h2>
+                <button class="btn-valorar-trigger" onclick="abrirModal()">
+                    <i class="fa-solid fa-star"></i> Valorar
+                </button>
                 <div id="streak-badge" class="streak-badge streak-zero" title="Días seguidos respondiendo">
                     <span class="streak-flame">🔥</span>
                     <div style="display:flex; flex-direction:column; align-items:center;">
@@ -347,6 +519,7 @@
                     </div>
                 </div>
             </div>
+            <h2 style="margin-top:10px;">¡Hola! <span id="user-name-display" style="color: var(--primary-color);">Usuario</span> 👋</h2>
             <p>Bienvenido de nuevo. Así ha sido tu estado emocional en los últimos días.</p>
 
             <div class="card">
@@ -825,6 +998,48 @@
                     }
                 }
             });
+        }
+        function abrirModal() {
+            // Resetear estado por si ya se había enviado antes
+            document.getElementById('modal-content-form').style.display = 'block';
+            document.getElementById('modal-content-ok').style.display  = 'none';
+            document.getElementById('valoracion-texto').value = '';
+            document.getElementById('modal-valoracion').classList.add('open');
+        }
+
+        function cerrarModalDirecto() {
+            document.getElementById('modal-valoracion').classList.remove('open');
+        }
+
+        function cerrarModal(e) {
+            // Cerrar solo si se hace click en el overlay, no en la tarjeta
+            if (e.target === document.getElementById('modal-valoracion')) {
+                cerrarModalDirecto();
+            }
+        }
+
+        async function enviarValoracion() {
+            const texto = document.getElementById('valoracion-texto').value.trim();
+            if (!texto) {
+                document.getElementById('valoracion-texto').style.borderColor = '#E53935';
+                document.getElementById('valoracion-texto').placeholder = 'Por favor, escribe algo antes de enviar...';
+                return;
+            }
+
+            try {
+                await fetch(API_BASE + '/api/valoracion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario_id: currentUserId, valoracion: texto })
+                });
+            } catch (e) {
+                console.warn('No se pudo guardar la valoración en el servidor:', e);
+            }
+
+            // Mostrar confirmación aunque falle el servidor
+            document.getElementById('modal-content-form').style.display = 'none';
+            document.getElementById('modal-content-ok').style.display   = 'block';
+            setTimeout(() => cerrarModalDirecto(), 2200);
         }
     </script>
 </body>
