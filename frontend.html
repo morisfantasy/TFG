@@ -204,6 +204,50 @@
             text-align: center;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* ── Contador de racha ── */
+        .streak-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+            border: 1.5px solid #FFCC80;
+            border-radius: 20px;
+            padding: 5px 12px;
+            cursor: default;
+            user-select: none;
+        }
+        .streak-badge .streak-flame {
+            font-size: 20px;
+            animation: flicker 1.4s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 4px rgba(255, 140, 0, 0.6));
+        }
+        .streak-badge .streak-number {
+            font-size: 15px;
+            font-weight: 800;
+            color: #E65100;
+            line-height: 1;
+        }
+        .streak-badge .streak-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #EF6C00;
+            line-height: 1;
+        }
+        .streak-badge.streak-zero .streak-flame {
+            filter: grayscale(1) opacity(0.4);
+            animation: none;
+        }
+        .streak-badge.streak-zero .streak-number,
+        .streak-badge.streak-zero .streak-label {
+            color: var(--text-muted);
+        }
+        @keyframes flicker {
+            0%   { transform: scaleY(1)    rotate(-2deg); }
+            40%  { transform: scaleY(1.06) rotate(1deg);  }
+            70%  { transform: scaleY(0.97) rotate(-1deg); }
+            100% { transform: scaleY(1.04) rotate(2deg);  }
+        }
     </style>
 </head>
 <body>
@@ -293,8 +337,16 @@
 
         <!-- PANTALLA PRINCIPAL (HOME) -->
         <div id="home-screen" class="screen">
-            <!-- CAMBIO SOLICITADO: Muestra el nombre con el que te has registrado -->
-            <h2 style="margin-top: 20px;">¡Hola! <span id="user-name-display" style="color: var(--primary-color);">Usuario</span> 👋</h2>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:20px; margin-bottom:4px;">
+                <h2 style="margin:0;">¡Hola! <span id="user-name-display" style="color: var(--primary-color);">Usuario</span> 👋</h2>
+                <div id="streak-badge" class="streak-badge streak-zero" title="Días seguidos respondiendo">
+                    <span class="streak-flame">🔥</span>
+                    <div style="display:flex; flex-direction:column; align-items:center;">
+                        <span class="streak-number" id="streak-number">0</span>
+                        <span class="streak-label">días</span>
+                    </div>
+                </div>
+            </div>
             <p>Bienvenido de nuevo. Así ha sido tu estado emocional en los últimos días.</p>
 
             <div class="card">
@@ -402,9 +454,60 @@
                         h.x = parseFloat(h.x);
                         h.y = parseFloat(h.y);
                     });
+                    actualizarRacha();
                 }
             } catch (e) {
                 console.error("Error cargando historial:", e);
+            }
+        }
+
+        function calcularRacha(historial) {
+            if (!historial || historial.length === 0) return 0;
+
+            // Obtener conjunto de fechas únicas (DD/MM/YYYY) del historial
+            const fechasUnicas = [...new Set(historial.map(h => h.fecha))];
+
+            // Convertir a objetos Date y ordenar de más reciente a más antiguo
+            const fechas = fechasUnicas.map(f => {
+                const [d, m, y] = f.split('/');
+                return new Date(y, m - 1, d);
+            }).sort((a, b) => b - a);
+
+            if (fechas.length === 0) return 0;
+
+            // Normalizar "hoy" a medianoche
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const ayer = new Date(hoy); ayer.setDate(hoy.getDate() - 1);
+
+            // La racha solo cuenta si el último registro fue hoy o ayer
+            const ultimo = new Date(fechas[0]); ultimo.setHours(0,0,0,0);
+            if (ultimo < ayer) return 0;
+
+            // Contar días consecutivos hacia atrás
+            let racha = 1;
+            for (let i = 1; i < fechas.length; i++) {
+                const actual = new Date(fechas[i]); actual.setHours(0,0,0,0);
+                const anterior = new Date(fechas[i - 1]); anterior.setHours(0,0,0,0);
+                const diffDias = Math.round((anterior - actual) / (1000 * 60 * 60 * 24));
+                if (diffDias === 1) {
+                    racha++;
+                } else {
+                    break;
+                }
+            }
+            return racha;
+        }
+
+        function actualizarRacha() {
+            const racha = calcularRacha(historial);
+            const badge  = document.getElementById('streak-badge');
+            const numero = document.getElementById('streak-number');
+            numero.textContent = racha;
+            if (racha === 0) {
+                badge.classList.add('streak-zero');
+            } else {
+                badge.classList.remove('streak-zero');
             }
         }
 
