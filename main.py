@@ -51,6 +51,13 @@ class UsuarioRegistro(BaseModel):
     password: str
     edad: int
     sexo: str
+    email: str = ""
+    region: str = ""
+    objetivo: str = ""
+
+class Valoracion(BaseModel):
+    usuario_id: int
+    valoracion: str
 
 class UsuarioLogin(BaseModel):
     nombre_usuario: str
@@ -69,8 +76,10 @@ def registrar_usuario(user: UsuarioRegistro):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO usuarios (nombre_usuario, password_hash, edad, sexo) VALUES (%s, %s, %s, %s) RETURNING id, nombre_usuario",
-            (user.nombre_usuario, hashed_password, user.edad, user.sexo)
+            """INSERT INTO usuarios (nombre_usuario, password_hash, edad, sexo, email, region, objetivo)
+               VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id, nombre_usuario""",
+            (user.nombre_usuario, hashed_password, user.edad, user.sexo,
+             user.email, user.region, user.objetivo)
         )
         res = cursor.fetchone()
         conn.commit()
@@ -160,6 +169,23 @@ def obtener_historial(usuario_id: int):
         cursor.close()
         conn.close()
         return rows
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Endpoint de Valoración ────────────────────────────────────────────────────
+@app.post("/api/valoracion")
+def guardar_valoracion(payload: Valoracion):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE usuarios SET valoracion = %s WHERE id = %s",
+            (payload.valoracion, payload.usuario_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"mensaje": "Valoración guardada correctamente"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
