@@ -243,7 +243,46 @@
                 </div>
                 <div class="input-group">
                     <label for="sexo">Sexo</label>
-                    <input type="text" id="sexo" placeholder="Ej: Femenino, Masculino, Otro">
+                    <select id="sexo" style="width:100%;padding:14px;border:1px solid var(--border-color);border-radius:12px;font-size:16px;background-color:var(--surface-color);color:var(--text-main);transition:border-color 0.2s;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%2364748B%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;">
+                        <option value="" disabled selected>Selecciona una opción</option>
+                        <option value="Hombre">Hombre</option>
+                        <option value="Mujer">Mujer</option>
+                        <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="email">Correo Electrónico</label>
+                    <input type="email" id="email" placeholder="Ej: tucorreo@ejemplo.com">
+                </div>
+                <div class="input-group">
+                    <label for="region">Región</label>
+                    <select id="region" style="width:100%;padding:14px;border:1px solid var(--border-color);border-radius:12px;font-size:16px;background-color:var(--surface-color);color:var(--text-main);transition:border-color 0.2s;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%2364748B%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;">
+                        <option value="" disabled selected>Selecciona tu región</option>
+                        <option value="Andalucía">Andalucía (ej: Sevilla)</option>
+                        <option value="Aragón">Aragón (ej: Zaragoza)</option>
+                        <option value="Asturias">Asturias (ej: Oviedo)</option>
+                        <option value="Baleares">Islas Baleares (ej: Palma)</option>
+                        <option value="Canarias">Canarias (ej: Las Palmas)</option>
+                        <option value="Cantabria">Cantabria (ej: Santander)</option>
+                        <option value="Castilla-La Mancha">Castilla-La Mancha (ej: Toledo)</option>
+                        <option value="Castilla y León">Castilla y León (ej: Salamanca)</option>
+                        <option value="Cataluña">Cataluña (ej: Barcelona)</option>
+                        <option value="Extremadura">Extremadura (ej: Cáceres)</option>
+                        <option value="Galicia">Galicia (ej: Santiago de Compostela)</option>
+                        <option value="La Rioja">La Rioja (ej: Logroño)</option>
+                        <option value="Madrid">Comunidad de Madrid (ej: Madrid)</option>
+                        <option value="Murcia">Región de Murcia (ej: Murcia)</option>
+                        <option value="Navarra">Navarra (ej: Pamplona)</option>
+                        <option value="País Vasco">País Vasco (ej: Bilbao)</option>
+                        <option value="Valencia">Comunidad Valenciana (ej: Valencia)</option>
+                        <option value="Ceuta">Ceuta</option>
+                        <option value="Melilla">Melilla</option>
+                        <option value="Otra">Otra / Fuera de España</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="objetivo">¿Con qué objetivo usas esta aplicación?</label>
+                    <textarea id="objetivo" style="height:100px;" placeholder="Ej: Quiero hacer un seguimiento de mi estado emocional para mejorar mi bienestar..."></textarea>
                 </div>
             </div>
             
@@ -385,7 +424,10 @@
                     nombre_usuario: user, 
                     password: pass, 
                     edad: parseInt(document.getElementById('edad').value) || 0, 
-                    sexo: document.getElementById('sexo').value.trim() || 'No especificado' 
+                    sexo: document.getElementById('sexo').value || 'Prefiero no decirlo',
+                    email: document.getElementById('email').value.trim() || '',
+                    region: document.getElementById('region').value || 'No especificada',
+                    objetivo: document.getElementById('objetivo').value.trim() || ''
                   };
 
             try {
@@ -501,30 +543,44 @@
             document.getElementById('emocion-label').textContent = 'Emoción: ' + traducirEmocion(entrada.emocion);
             
             if (chartInstance) {
-                // Dataset 0: Punto actual (Transparencia completa / Visible)
-                chartInstance.data.datasets[0].data = [{
-                    x: entrada.x,
-                    y: entrada.y,
-                    respuesta_1: entrada.respuesta_1
-                }];
+                // Dataset 7 (último): punto usuario actual, color negro
+                const dsUser = chartInstance.data.datasets[chartInstance.data.datasets.length - 1];
+                dsUser.data = [{ x: entrada.x, y: entrada.y, respuesta_1: entrada.respuesta_1 }];
 
-                // CAMBIO SOLICITADO: Cuando estés viendo el gráfico de tu última respuesta (Hoy/diaActual===0), 
-                // se verán con menos opacidad 3 respuestas aleatorias de otros momentos
-                let puntosAleatorios = [];
+                // Dataset 6 (penúltimo): 4 puntos históricos fijos al ver "Hoy"
+                const dsHist = chartInstance.data.datasets[chartInstance.data.datasets.length - 2];
+                let puntosHistoricos = [];
                 if (diaActual === 0 && historial.length > 1) {
-                    // Coger todos menos el actual
-                    let otrosPuntos = historial.slice(0, historial.length - 1);
-                    // Desordenar aleatoriamente
-                    otrosPuntos.sort(() => 0.5 - Math.random());
-                    // Coger hasta 3
-                    let seleccionados = otrosPuntos.slice(0, 3);
-                    puntosAleatorios = seleccionados.map(p => ({
-                        x: p.x,
-                        y: p.y,
-                        respuesta_1: p.respuesta_1
-                    }));
+                    const ahora = new Date();
+                    const ventanas = [
+                        { label: 'Hace 1 semana',   ms: 7  * 24 * 3600 * 1000 },
+                        { label: 'Hace 1 mes',       ms: 30 * 24 * 3600 * 1000 },
+                        { label: 'Hace 3 meses',     ms: 90 * 24 * 3600 * 1000 },
+                        { label: 'Hace 1 año',       ms: 365* 24 * 3600 * 1000 },
+                    ];
+                    const otrosPuntos = historial.slice(0, historial.length - 1);
+                    ventanas.forEach(v => {
+                        // Buscar el punto más cercano a esa ventana temporal
+                        const objetivo = new Date(ahora.getTime() - v.ms);
+                        let mejor = null, mejorDiff = Infinity;
+                        otrosPuntos.forEach(p => {
+                            // Parsear fecha DD/MM/YYYY
+                            const partes = p.fecha ? p.fecha.split('/') : null;
+                            if (!partes) return;
+                            const fechaP = new Date(partes[2], partes[1]-1, partes[0]);
+                            const diff = Math.abs(fechaP - objetivo);
+                            if (diff < mejorDiff) { mejorDiff = diff; mejor = p; }
+                        });
+                        if (mejor) {
+                            puntosHistoricos.push({
+                                x: mejor.x, y: mejor.y,
+                                respuesta_1: mejor.respuesta_1,
+                                historicalLabel: v.label
+                            });
+                        }
+                    });
                 }
-                chartInstance.data.datasets[1].data = puntosAleatorios;
+                dsHist.data = puntosHistoricos;
                 
                 chartInstance.update();
             }
@@ -547,40 +603,66 @@
             }, 3500);
         }
 
+        // Puntos de referencia de emociones básicas de Ekman (escalados x10)
+        const EMOTION_ANCHORS = [
+            { x:  8.1, y:  5.1, label: 'Alegría',   color: '#F5C518' },
+            { x:  4.0, y:  6.7, label: 'Sorpresa',  color: '#F48FB1' },
+            { x: -5.1, y:  5.9, label: 'Ira',       color: '#E53935' },
+            { x: -6.4, y:  6.0, label: 'Miedo',     color: '#9C27B0' },
+            { x: -6.0, y:  3.5, label: 'Asco',      color: '#388E3C' },
+            { x: -6.3, y: -2.7, label: 'Tristeza',  color: '#1E88E5' },
+        ];
+
+        // Etiquetas de los puntos históricos fijos
+        const HISTORICAL_LABELS = ['Hace 1 semana', 'Hace 1 mes', 'Hace 3 meses', 'Hace 1 año'];
+
         function initChart() {
             const ctx = document.getElementById('circumplexChart').getContext('2d');
+
+            // Dataset 0: puntos de emoción (uno por emoción, con color propio)
+            const emotionDatasets = EMOTION_ANCHORS.map(em => ({
+                label: em.label,
+                data: [{ x: em.x, y: em.y, label: em.label }],
+                backgroundColor: em.color + 'CC',  // algo de transparencia
+                borderColor: em.color,
+                borderWidth: 1.5,
+                pointRadius: 7,
+                pointHoverRadius: 9,
+                pointStyle: 'circle',
+            }));
+
+            // Dataset 6: momentos históricos fijos (4 puntos: 1sem, 1mes, 3meses, 1año)
+            const historicalDataset = {
+                label: 'Momentos pasados',
+                data: [],
+                backgroundColor: 'rgba(100, 116, 139, 0.18)',
+                borderColor: 'rgba(100, 116, 139, 0.35)',
+                borderWidth: 1.5,
+                pointRadius: 8,
+                pointHoverRadius: 10,
+            };
+
+            // Dataset 7: punto usuario actual (negro)
+            const userDataset = {
+                label: 'Estado actual',
+                data: [],
+                backgroundColor: '#1E293B',
+                borderColor: '#FFFFFF',
+                borderWidth: 2,
+                pointRadius: 11,
+                pointHoverRadius: 13,
+            };
 
             chartInstance = new Chart(ctx, {
                 type: 'scatter',
                 data: {
-                    datasets: [
-                        {
-                            label: 'Estado actual',
-                            data: [],
-                            backgroundColor: '#7BA098',
-                            borderColor: '#FFFFFF',
-                            borderWidth: 2,
-                            pointRadius: 10,
-                            pointHoverRadius: 12
-                        },
-                        {
-                            label: 'Momentos pasados',
-                            data: [],
-                            // CAMBIO SOLICITADO: Menos opacidad para el dataset de historiales
-                            backgroundColor: 'rgba(123, 160, 152, 0.25)', 
-                            borderColor: 'rgba(123, 160, 152, 0.4)',
-                            borderWidth: 1,
-                            pointRadius: 9,
-                            pointHoverRadius: 11
-                        }
-                    ]
+                    datasets: [...emotionDatasets, historicalDataset, userDataset]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
-                        // CAMBIO SOLICITADO: Mostrar información de '¿Qué estás haciendo?' al poner el ratón (hover)
                         tooltip: { 
                             enabled: true,
                             backgroundColor: 'rgba(51, 65, 85, 0.95)',
@@ -590,8 +672,18 @@
                             cornerRadius: 8,
                             callbacks: {
                                 label: function(context) {
-                                    let rawData = context.raw;
-                                    return "Haciendo: " + (rawData.respuesta_1 || "No registrado");
+                                    const raw = context.raw;
+                                    const dsLabel = context.dataset.label;
+                                    // Puntos de emoción anclados
+                                    if (raw.label && HISTORICAL_LABELS.indexOf(dsLabel) === -1 && dsLabel !== 'Estado actual' && dsLabel !== 'Momentos pasados') {
+                                        return '● ' + raw.label;
+                                    }
+                                    // Puntos históricos
+                                    if (raw.historicalLabel) {
+                                        return raw.historicalLabel + (raw.respuesta_1 ? ': ' + raw.respuesta_1 : '');
+                                    }
+                                    // Punto usuario
+                                    return "Haciendo: " + (raw.respuesta_1 || "No registrado");
                                 }
                             }
                         }
