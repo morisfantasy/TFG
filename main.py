@@ -34,6 +34,17 @@ APP_URL        = os.getenv("APP_URL", "https://tfg-production-db76.up.railway.ap
 
 def enviar_email_verificacion(email_destino: str, token: str, nombre: str):
     enlace = f"{APP_URL}/api/verificar-email?token={token}"
+
+    print(f"[EMAIL] Intentando enviar a: {email_destino}")
+    print(f"[EMAIL] SMTP_HOST={SMTP_HOST} SMTP_PORT={SMTP_PORT}")
+    print(f"[EMAIL] SMTP_USER={SMTP_USER}")
+    print(f"[EMAIL] SMTP_PASSWORD configurado: {'SÍ' if SMTP_PASSWORD else 'NO — FALTA LA VARIABLE'}")
+    print(f"[EMAIL] Enlace de verificación: {enlace}")
+
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print("[EMAIL] ERROR: Faltan variables de entorno SMTP_USER o SMTP_PASSWORD. No se envía el correo.")
+        return
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Confirma tu cuenta en Alto y Claro"
     msg["From"]    = SMTP_USER
@@ -55,12 +66,27 @@ def enviar_email_verificacion(email_destino: str, token: str, nombre: str):
     msg.attach(MIMEText(html, "html"))
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        print("[EMAIL] Conectando al servidor SMTP...")
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            server.set_debuglevel(1)   # muestra toda la conversación SMTP en los logs
+            server.ehlo()
             server.starttls()
+            server.ehlo()
+            print("[EMAIL] Haciendo login...")
             server.login(SMTP_USER, SMTP_PASSWORD)
+            print("[EMAIL] Login OK. Enviando mensaje...")
             server.sendmail(SMTP_USER, email_destino, msg.as_string())
+            print(f"[EMAIL] ✅ Correo enviado correctamente a {email_destino}")
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[EMAIL] ❌ Error de autenticación SMTP: {e}")
+        print("[EMAIL] Posibles causas:")
+        print("[EMAIL]   1. La contraseña de aplicación es incorrecta")
+        print("[EMAIL]   2. La cuenta de la UIE no permite contraseñas de aplicación")
+        print("[EMAIL]   3. La verificación en dos pasos no está activada")
+    except smtplib.SMTPConnectError as e:
+        print(f"[EMAIL] ❌ No se pudo conectar al servidor SMTP: {e}")
     except Exception as e:
-        print(f"Error enviando email: {e}")
+        print(f"[EMAIL] ❌ Error inesperado enviando email: {type(e).__name__}: {e}")
 
 # ── Inicializar app y modelo ──────────────────────────────────────────────────
 app = FastAPI(title="API - Análisis Emocional TFG")
