@@ -385,6 +385,61 @@
         }
         .toggle-password:hover { color: var(--primary-color); }
 
+        /* ── Pantalla verificación pendiente ── */
+        #verificacion-screen .verificacion-box {
+            text-align: center;
+            padding: 40px 24px;
+            margin-top: 60px;
+        }
+        #verificacion-screen .verificacion-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+            animation: pulse-mail 2s ease-in-out infinite;
+        }
+        @keyframes pulse-mail {
+            0%, 100% { transform: scale(1);   opacity: 1;   }
+            50%       { transform: scale(1.1); opacity: 0.7; }
+        }
+        #verificacion-screen h2 {
+            font-size: 22px;
+            color: var(--text-main);
+            margin-bottom: 12px;
+        }
+        #verificacion-screen p {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+        #verificacion-screen .email-highlight {
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        .btn-reenviar {
+            width: 100%;
+            padding: 14px;
+            background: none;
+            border: 2px solid var(--primary-color);
+            border-radius: 24px;
+            color: var(--primary-color);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+            margin-bottom: 12px;
+        }
+        .btn-reenviar:hover { background: var(--primary-color); color: white; }
+        .btn-volver-login {
+            width: 100%;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
         /* ── Contador de racha ── */
         .streak-badge {
             display: flex;
@@ -644,6 +699,26 @@
             </div>
         </div>
 
+        <!-- PANTALLA DE VERIFICACIÓN PENDIENTE -->
+        <div id="verificacion-screen" class="screen">
+            <div class="verificacion-box">
+                <div class="verificacion-icon">📬</div>
+                <h2>Confirma tu correo</h2>
+                <p>
+                    Hemos enviado un enlace de verificación a<br>
+                    <span class="email-highlight" id="verificacion-email">tu correo</span>.<br><br>
+                    Abre el correo y haz clic en el enlace para activar tu cuenta.
+                    Esta pantalla se actualizará automáticamente.
+                </p>
+                <button class="btn-reenviar" onclick="reenviarVerificacion()">
+                    <i class="fa-solid fa-paper-plane"></i> Reenviar correo
+                </button>
+                <button class="btn-volver-login" onclick="volverAlLogin()">
+                    Volver al inicio de sesión
+                </button>
+            </div>
+        </div>
+
         <!-- NAV INFERIOR -->
         <nav id="bottom-nav" style="display: none;">
             <div class="nav-item active" onclick="navigate('home-screen', this)">
@@ -675,6 +750,7 @@
         function toggleAuth(modo) {
             authMode = modo;
             limpiarErrores();
+            limpiarErrorLogin();
             document.getElementById('registro-fields').style.display = modo === 'registro' ? 'block' : 'none';
             document.getElementById('tab-login').style.color = modo === 'login' ? 'var(--primary-color)' : 'var(--text-muted)';
             document.getElementById('tab-login').style.borderBottom = modo === 'login' ? '2px solid var(--primary-color)' : 'none';
@@ -830,23 +906,40 @@
                 });
                 const data = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(data.detail || "Error en la autenticación.");
+                // Cuenta no verificada → pantalla de espera
+                if (response.status === 403) {
+                    marcarError('username', 'err-username', false);
+                    marcarError('password', 'err-password', false);
+                    document.getElementById('password').style.borderColor = '#EF6C00';
+                    mostrarErrorLogin('⚠ Cuenta sin verificar. Revisa tu correo y confirma tu cuenta antes de entrar.');
+                    return;
                 }
 
+                if (!response.ok) {
+                    mostrarErrorLogin(data.detail || 'Error en la autenticación.');
+                    return;
+                }
+
+                // Registro exitoso → pantalla de verificación pendiente
+                if (authMode === 'registro') {
+                    pendingEmail = bodyData.email;
+                    document.getElementById('verificacion-email').textContent = pendingEmail;
+                    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                    document.getElementById('verificacion-screen').classList.add('active');
+                    iniciarPollingVerificacion(data.usuario_id);
+                    return;
+                }
+
+                // Login exitoso → entrar a la app
                 currentUserId = data.usuario_id;
-                
-                // CAMBIO SOLICITADO: Cargar el nombre registrado/logueado de forma dinámica
                 document.getElementById('user-name-display').textContent = data.nombre_usuario || user;
-                
                 await cargarHistorialReal();
-                
                 document.getElementById('bottom-nav').style.display = 'flex';
                 const homeTab = document.querySelector('.nav-item:nth-child(1)');
                 navigate('home-screen', homeTab);
 
             } catch(e) {
-                alert(e.message);
+                mostrarErrorLogin(e.message);
             }
         }
 
@@ -1115,6 +1208,75 @@
                 }
             });
         }
+        // ── Variables para verificación ─────────────────────────────
+        let pendingEmail    = '';
+        let pollingInterval = null;
+
+        function mostrarErrorLogin(msg) {
+            // Muestra el error debajo del botón de auth sin alert()
+            let errDiv = document.getElementById('err-auth-global');
+            if (!errDiv) {
+                errDiv = document.createElement('div');
+                errDiv.id = 'err-auth-global';
+                errDiv.style.cssText = 'color:#E53935;font-size:13px;font-weight:600;margin-top:12px;text-align:center;padding:10px;background:#FFF5F5;border-radius:10px;';
+                document.getElementById('btn-auth').insertAdjacentElement('afterend', errDiv);
+            }
+            errDiv.textContent = msg;
+            errDiv.style.display = 'block';
+        }
+
+        function limpiarErrorLogin() {
+            const errDiv = document.getElementById('err-auth-global');
+            if (errDiv) errDiv.style.display = 'none';
+            // Resetear borde password si estaba naranja
+            document.getElementById('password').style.borderColor = '';
+        }
+
+        function volverAlLogin() {
+            if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('login-screen').classList.add('active');
+            toggleAuth('login');
+        }
+
+        async function reenviarVerificacion() {
+            if (!pendingEmail) return;
+            try {
+                await fetch(API_BASE + '/api/reenviar-verificacion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: pendingEmail })
+                });
+                const btn = document.querySelector('.btn-reenviar');
+                btn.textContent = '✅ Correo reenviado';
+                setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Reenviar correo'; }, 3000);
+            } catch(e) { console.error(e); }
+        }
+
+        function iniciarPollingVerificacion(usuarioId) {
+            // Comprueba cada 5 seg si el usuario ya verificó su email
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const r = await fetch(API_BASE + '/api/estado-verificacion/' + usuarioId);
+                    if (r.ok) {
+                        const d = await r.json();
+                        if (d.verificado) {
+                            clearInterval(pollingInterval);
+                            pollingInterval = null;
+                            // Entrar a la app automáticamente
+                            currentUserId = usuarioId;
+                            document.getElementById('user-name-display').textContent = d.nombre_usuario;
+                            await cargarHistorialReal();
+                            document.getElementById('bottom-nav').style.display = 'flex';
+                            const homeTab = document.querySelector('.nav-item:nth-child(1)');
+                            navigate('home-screen', homeTab);
+                        }
+                    }
+                } catch(e) { /* silencioso */ }
+            }, 5000);
+        }
+
         function abrirModal() {
             // Resetear estado por si ya se había enviado antes
             document.getElementById('modal-content-form').style.display = 'block';

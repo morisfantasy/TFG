@@ -1,5 +1,9 @@
 import os
 import json
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import bcrypt
@@ -20,6 +24,43 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+# ── Configuración de Email (variables de entorno en Railway) ──────────────────
+SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER     = os.getenv("SMTP_USER")      # tu correo remitente
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # contraseña de app de Gmail
+APP_URL        = os.getenv("APP_URL", "https://tfg-production-db76.up.railway.app")
+
+def enviar_email_verificacion(email_destino: str, token: str, nombre: str):
+    enlace = f"{APP_URL}/api/verificar-email?token={token}"
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Confirma tu cuenta en Alto y Claro"
+    msg["From"]    = SMTP_USER
+    msg["To"]      = email_destino
+
+    html = f"""
+    <html><body style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
+      <h2 style="color:#7BA098;">¡Bienvenido a Alto y Claro, {nombre}!</h2>
+      <p>Gracias por registrarte. Para activar tu cuenta haz clic en el botón:</p>
+      <a href="{enlace}" style="display:inline-block;margin:16px 0;padding:14px 28px;
+         background:#7BA098;color:white;text-decoration:none;border-radius:24px;
+         font-weight:bold;">Verificar mi cuenta</a>
+      <p style="color:#64748B;font-size:13px;">
+        Si no te has registrado en esta aplicación, ignora este correo.<br>
+        El enlace caduca en 24 horas.
+      </p>
+    </body></html>
+    """
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_USER, email_destino, msg.as_string())
+    except Exception as e:
+        print(f"Error enviando email: {e}")
 
 # ── Inicializar app y modelo ──────────────────────────────────────────────────
 app = FastAPI(title="API - Análisis Emocional TFG")
@@ -72,20 +113,30 @@ class TextoEMA(BaseModel):
 @app.post("/api/registro")
 def registrar_usuario(user: UsuarioRegistro):
     hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    token_verificacion = secrets.token_urlsafe(32)
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO usuarios (nombre_usuario, password_hash, edad, sexo, email, region, objetivo)
-               VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id, nombre_usuario""",
+            """INSERT INTO usuarios
+               (nombre_usuario, password_hash, edad, sexo, email, region, objetivo,
+                email_verificado, token_verificacion)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, FALSE, %s)
+               RETURNING id, nombre_usuario""",
             (user.nombre_usuario, hashed_password, user.edad, user.sexo,
-             user.email, user.region, user.objetivo)
+             user.email, user.region, user.objetivo, token_verificacion)
         )
         res = cursor.fetchone()
         conn.commit()
         cursor.close()
         conn.close()
-        return {"mensaje": "Usuario creado", "usuario_id": res['id'], "nombre_usuario": res['nombre_usuario']}
+        # Enviar correo de verificación
+        enviar_email_verificacion(user.email, token_verificacion, user.nombre_usuario)
+        return {
+            "mensaje": "Usuario creado. Revisa tu correo para verificar la cuenta.",
+            "usuario_id": res['id'],
+            "nombre_usuario": res['nombre_usuario']
+        }
     except psycopg2.IntegrityError:
         raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
     except Exception as e:
@@ -95,14 +146,20 @@ def registrar_usuario(user: UsuarioRegistro):
 def login_usuario(user: UsuarioLogin):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, nombre_usuario, password_hash FROM usuarios WHERE nombre_usuario = %s", (user.nombre_usuario,))
+    cursor.execute(
+        "SELECT id, nombre_usuario, password_hash, email_verificado FROM usuarios WHERE nombre_usuario = %s",
+        (user.nombre_usuario,)
+    )
     db_user = cursor.fetchone()
     cursor.close()
     conn.close()
 
     if not db_user or not bcrypt.checkpw(user.password.encode('utf-8'), db_user['password_hash'].encode('utf-8')):
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
-    
+
+    if not db_user['email_verificado']:
+        raise HTTPException(status_code=403, detail="Cuenta sin verificar. Revisa tu correo y confirma tu cuenta antes de entrar.")
+
     return {"mensaje": "Login exitoso", "usuario_id": db_user['id'], "nombre_usuario": db_user['nombre_usuario']}
 
 # ── Endpoint principal de Análisis ────────────────────────────────────────────
@@ -186,6 +243,104 @@ def guardar_valoracion(payload: Valoracion):
         cursor.close()
         conn.close()
         return {"mensaje": "Valoración guardada correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Endpoint verificación de email ───────────────────────────────────────────
+@app.get("/api/verificar-email")
+def verificar_email(token: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM usuarios WHERE token_verificacion = %s AND email_verificado = FALSE",
+            (token,)
+        )
+        usuario = cursor.fetchone()
+        if not usuario:
+            cursor.close()
+            conn.close()
+            raise HTTPException(status_code=400, detail="Enlace de verificación inválido o ya utilizado.")
+
+        cursor.execute(
+            "UPDATE usuarios SET email_verificado = TRUE, token_verificacion = NULL WHERE id = %s",
+            (usuario['id'],)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        # Redirigir al usuario a la app con mensaje de éxito
+        html = """<!DOCTYPE html>
+        <html><head><meta charset="UTF-8">
+        <meta http-equiv="refresh" content="3;url=/">
+        <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
+        height:100vh;margin:0;background:#F0F4F3;}
+        .box{text-align:center;padding:40px;background:white;border-radius:20px;box-shadow:0 4px 20px rgba(0,0,0,.08);}
+        h2{color:#7BA098;}p{color:#64748B;}</style></head>
+        <body><div class="box">
+          <h2>✅ ¡Cuenta verificada!</h2>
+          <p>Tu cuenta ha sido activada correctamente.<br>Serás redirigido a la aplicación en 3 segundos...</p>
+        </div></body></html>"""
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Endpoint: comprobar estado de verificación (polling del cliente) ─────────
+@app.get("/api/estado-verificacion/{usuario_id}")
+def estado_verificacion(usuario_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT email_verificado, nombre_usuario FROM usuarios WHERE id = %s",
+            (usuario_id,)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if not row:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        return {"verificado": row['email_verificado'], "nombre_usuario": row['nombre_usuario']}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Endpoint: reenviar correo de verificación ─────────────────────────────────
+class ReenvioVerificacion(BaseModel):
+    email: str
+
+@app.post("/api/reenviar-verificacion")
+def reenviar_verificacion(payload: ReenvioVerificacion):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, nombre_usuario, token_verificacion, email_verificado FROM usuarios WHERE email = %s",
+            (payload.email,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="No existe ninguna cuenta con ese correo.")
+        if row['email_verificado']:
+            raise HTTPException(status_code=400, detail="Esta cuenta ya está verificada.")
+
+        # Generar nuevo token
+        nuevo_token = secrets.token_urlsafe(32)
+        cursor.execute(
+            "UPDATE usuarios SET token_verificacion = %s WHERE id = %s",
+            (nuevo_token, row['id'])
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        enviar_email_verificacion(payload.email, nuevo_token, row['nombre_usuario'])
+        return {"mensaje": "Correo de verificación reenviado."}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
