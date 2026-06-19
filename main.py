@@ -1,9 +1,8 @@
 import os
 import json
 import secrets
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import urllib.request
+import urllib.error
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import bcrypt
@@ -25,68 +24,62 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# ── Configuración de Email (variables de entorno en Railway) ──────────────────
-SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER     = os.getenv("SMTP_USER")      # tu correo remitente
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")  # contraseña de app de Gmail
-APP_URL        = os.getenv("APP_URL", "https://tfg-production-db76.up.railway.app")
+# ── Configuración de Email (SendGrid API) ────────────────────────────────────
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+SENDGRID_FROM    = os.getenv("SMTP_USER", "maurosanromancostas@gmail.com")
+APP_URL          = os.getenv("APP_URL", "https://tfg-production-db76.up.railway.app")
 
 def enviar_email_verificacion(email_destino: str, token: str, nombre: str):
     enlace = f"{APP_URL}/api/verificar-email?token={token}"
 
     print(f"[EMAIL] Intentando enviar a: {email_destino}")
-    print(f"[EMAIL] SMTP_HOST={SMTP_HOST} SMTP_PORT={SMTP_PORT}")
-    print(f"[EMAIL] SMTP_USER={SMTP_USER}")
-    print(f"[EMAIL] SMTP_PASSWORD configurado: {'SÍ' if SMTP_PASSWORD else 'NO — FALTA LA VARIABLE'}")
-    print(f"[EMAIL] Enlace de verificación: {enlace}")
+    print(f"[EMAIL] SendGrid FROM: {SENDGRID_FROM}")
+    print(f"[EMAIL] API Key configurada: {'SÍ' if SENDGRID_API_KEY else 'NO — FALTA SENDGRID_API_KEY'}")
+    print(f"[EMAIL] Enlace: {enlace}")
 
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print("[EMAIL] ERROR: Faltan variables de entorno SMTP_USER o SMTP_PASSWORD. No se envía el correo.")
+    if not SENDGRID_API_KEY:
+        print("[EMAIL] ERROR: Falta la variable SENDGRID_API_KEY.")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Confirma tu cuenta en Alto y Claro"
-    msg["From"]    = SMTP_USER
-    msg["To"]      = email_destino
+    payload = json.dumps({
+        "personalizations": [{"to": [{"email": email_destino}]}],
+        "from": {"email": SENDGRID_FROM, "name": "Alto y Claro"},
+        "subject": "Confirma tu cuenta en Alto y Claro",
+        "content": [{
+            "type": "text/html",
+            "value": f"""
+            <html><body style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
+              <h2 style="color:#7BA098;">¡Bienvenido a Alto y Claro, {nombre}!</h2>
+              <p>Gracias por registrarte. Para activar tu cuenta haz clic en el botón:</p>
+              <a href="{enlace}" style="display:inline-block;margin:16px 0;padding:14px 28px;
+                 background:#7BA098;color:white;text-decoration:none;border-radius:24px;
+                 font-weight:bold;">Verificar mi cuenta</a>
+              <p style="color:#64748B;font-size:13px;">
+                Si no te has registrado en esta aplicación, ignora este correo.<br>
+                El enlace caduca en 24 horas.
+              </p>
+            </body></html>"""
+        }]
+    }).encode("utf-8")
 
-    html = f"""
-    <html><body style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
-      <h2 style="color:#7BA098;">¡Bienvenido a Alto y Claro, {nombre}!</h2>
-      <p>Gracias por registrarte. Para activar tu cuenta haz clic en el botón:</p>
-      <a href="{enlace}" style="display:inline-block;margin:16px 0;padding:14px 28px;
-         background:#7BA098;color:white;text-decoration:none;border-radius:24px;
-         font-weight:bold;">Verificar mi cuenta</a>
-      <p style="color:#64748B;font-size:13px;">
-        Si no te has registrado en esta aplicación, ignora este correo.<br>
-        El enlace caduca en 24 horas.
-      </p>
-    </body></html>
-    """
-    msg.attach(MIMEText(html, "html"))
+    req = urllib.request.Request(
+        "https://api.sendgrid.com/v3/mail/send",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {SENDGRID_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
+    )
 
     try:
-        print("[EMAIL] Conectando al servidor SMTP...")
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-            server.set_debuglevel(1)   # muestra toda la conversación SMTP en los logs
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            print("[EMAIL] Haciendo login...")
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            print("[EMAIL] Login OK. Enviando mensaje...")
-            server.sendmail(SMTP_USER, email_destino, msg.as_string())
-            print(f"[EMAIL] ✅ Correo enviado correctamente a {email_destino}")
-    except smtplib.SMTPAuthenticationError as e:
-        print(f"[EMAIL] ❌ Error de autenticación SMTP: {e}")
-        print("[EMAIL] Posibles causas:")
-        print("[EMAIL]   1. La contraseña de aplicación es incorrecta")
-        print("[EMAIL]   2. La cuenta de la UIE no permite contraseñas de aplicación")
-        print("[EMAIL]   3. La verificación en dos pasos no está activada")
-    except smtplib.SMTPConnectError as e:
-        print(f"[EMAIL] ❌ No se pudo conectar al servidor SMTP: {e}")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            print(f"[EMAIL] ✅ Correo enviado. Status: {resp.status}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="ignore")
+        print(f"[EMAIL] ❌ SendGrid HTTP error {e.code}: {body}")
     except Exception as e:
-        print(f"[EMAIL] ❌ Error inesperado enviando email: {type(e).__name__}: {e}")
+        print(f"[EMAIL] ❌ Error inesperado: {type(e).__name__}: {e}")
 
 # ── Inicializar app y modelo ──────────────────────────────────────────────────
 app = FastAPI(title="API - Análisis Emocional TFG")
