@@ -334,6 +334,43 @@
         }
 
 
+
+        /* ── Estados ventana EMA ── */
+        .ema-estado {
+            text-align: center;
+            padding: 40px 16px;
+        }
+        .ema-estado .ema-icono {
+            font-size: 56px;
+            margin-bottom: 16px;
+        }
+        .ema-estado h3 {
+            font-size: 20px;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+        .ema-estado p {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 0;
+        }
+        .ema-estado .hora-llegada {
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        #ema-countdown {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin: 12px 0 4px;
+            letter-spacing: 1px;
+        }
+        .ema-respondida-icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+
         /* ── Validación de campos ── */
         .input-group input.field-error,
         .input-group textarea.field-error,
@@ -664,28 +701,70 @@
 
         <!-- PANTALLA DE REGISTRO EMA -->
         <div id="ema-screen" class="screen">
-            <h2 style="margin-top: 20px;">Registro Diario 📝</h2>
-            <p>Tómate un respiro. Cierra los ojos y cuéntanos sobre tu momento actual.</p>
 
-            <form id="ema-form" onsubmit="submitEma(event)">
-                <div class="card">
-                    <div class="input-group">
-                        <label for="q1">¿Qué estás haciendo en este momento?</label>
-                        <textarea id="q1" placeholder="Ej: Estoy trabajando en la oficina, acabo de terminar una reunión..."></textarea>
+            <!-- Estado: cargando -->
+            <div id="ema-cargando" class="ema-estado">
+                <div class="ema-icono"><i class="fa-solid fa-circle-notch fa-spin" style="color:var(--primary-color);"></i></div>
+                <h3>Comprobando tu ventana...</h3>
+            </div>
+
+            <!-- Estado: sin ventana programada aún -->
+            <div id="ema-sin-ventana" class="ema-estado" style="display:none;">
+                <div class="ema-icono">🌙</div>
+                <h3>Aún no hay registro para hoy</h3>
+                <p>Tu notificación diaria llegará pronto.<br>¡Vuelve cuando te avisemos!</p>
+            </div>
+
+            <!-- Estado: pendiente (notificación aún no ha llegado) -->
+            <div id="ema-pendiente" class="ema-estado" style="display:none;">
+                <div class="ema-icono">⏰</div>
+                <h3>Tu momento del día está por llegar</h3>
+                <p>Hoy recibirás tu notificación a las<br>
+                   <span class="hora-llegada" id="ema-hora-llegada">--:--</span></p>
+                <p style="margin-top:12px;">Cuando llegue tendrás <strong>30 minutos</strong> para responder.</p>
+            </div>
+
+            <!-- Estado: abierta (ventana activa, puede responder) -->
+            <div id="ema-abierta" style="display:none;">
+                <h2 style="margin-top: 20px;">¡Es tu momento! 📝</h2>
+                <p>Tienes <strong id="ema-countdown">30:00</strong> para responder.</p>
+
+                <form id="ema-form" onsubmit="submitEma(event)">
+                    <div class="card">
+                        <div class="input-group">
+                            <label for="q1">¿Qué estás haciendo en este momento?</label>
+                            <textarea id="q1" placeholder="Ej: Estoy trabajando en la oficina, acabo de terminar una reunión..."></textarea>
+                        </div>
                     </div>
-                </div>
-
-                <div class="card">
-                    <div class="input-group">
-                        <label for="q2">¿Cómo te sientes ahora mismo?</label>
-                        <textarea id="q2" placeholder="Ej: Me siento un poco agobiado por los plazos, pero tranquilo porque el equipo está colaborando..."></textarea>
+                    <div class="card">
+                        <div class="input-group">
+                            <label for="q2">¿Cómo te sientes ahora mismo?</label>
+                            <textarea id="q2" placeholder="Ej: Me siento un poco agobiado por los plazos, pero tranquilo porque el equipo está colaborando..."></textarea>
+                        </div>
                     </div>
-                </div>
+                    <button type="submit" class="btn" id="submit-btn">
+                        Enviar Registro <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
 
-                <button type="submit" class="btn" id="submit-btn">
-                    Enviar Registro <i class="fa-solid fa-paper-plane"></i>
-                </button>
-            </form>
+            <!-- Estado: cerrada (se acabó el tiempo) -->
+            <div id="ema-cerrada" class="ema-estado" style="display:none;">
+                <div class="ema-icono">😴</div>
+                <h3>La ventana de hoy ha cerrado</h3>
+                <p>No llegaste a tiempo esta vez.<br>
+                   Tu racha se ha reiniciado.<br><br>
+                   <strong>¡Mañana es una nueva oportunidad!</strong></p>
+            </div>
+
+            <!-- Estado: respondida (ya completó hoy) -->
+            <div id="ema-respondida" class="ema-estado" style="display:none;">
+                <div class="ema-respondida-icon">✅</div>
+                <h3>¡Ya has registrado tu momento de hoy!</h3>
+                <p>Vuelve mañana cuando llegue tu notificación.<br>
+                   Sigue así, ¡tu racha lo agradece! 🔥</p>
+            </div>
+
         </div>
 
         <!-- PANTALLA DE MASCOTA MODIFICADA -->
@@ -742,10 +821,11 @@
         let diaActual = 0; 
         let chartInstance = null;
         let currentUserId = null;
-        let authMode = 'login'; 
+        let authMode = 'login';
+        let countdownInterval = null;
 
-        // ¡¡IMPORTANTE: CAMBIA ESTA URL POR TU URL REAL DE DESPLIEGUE EN RAILWAY EN TU ORDENADOR!!
-        const API_BASE = 'https://tfg-production-db76.up.railway.app'; 
+        const API_BASE = 'https://tfg-production-db76.up.railway.app';
+        const FCM_VAPID_KEY = 'AIzaSyD8MhMCOUPIlHd8AK-F_eFiVdyDGKOpy0U'; 
 
         function toggleAuth(modo) {
             authMode = modo;
@@ -934,6 +1014,7 @@
                 currentUserId = data.usuario_id;
                 document.getElementById('user-name-display').textContent = data.nombre_usuario || user;
                 await cargarHistorialReal();
+                await registrarFCM();
                 document.getElementById('bottom-nav').style.display = 'flex';
                 const homeTab = document.querySelector('.nav-item:nth-child(1)');
                 navigate('home-screen', homeTab);
@@ -974,11 +1055,13 @@
                 }
                 
                 await cargarHistorialReal();
-                diaActual = 0; 
-                
+                diaActual = 0;
+
                 document.getElementById('q1').value = '';
                 document.getElementById('q2').value = '';
-                
+
+                if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+
                 const homeTab = document.querySelector('.nav-item:nth-child(1)');
                 navigate('home-screen', homeTab);
                 renderizarDia();
@@ -1008,6 +1091,9 @@
                     initChart();
                 }
                 renderizarDia();
+            }
+            if (screenId === 'ema-screen') {
+                comprobarVentana();
             }
         }
 
@@ -1277,6 +1363,111 @@
             }, 5000);
         }
 
+        // ── FCM: registrar service worker y obtener token ────────────────
+        async function registrarFCM() {
+            if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+            try {
+                const permiso = await Notification.requestPermission();
+                if (permiso !== 'granted') {
+                    console.log('[FCM] Permiso de notificaciones denegado.');
+                    return;
+                }
+                const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                console.log('[FCM] Service Worker registrado.');
+
+                // Usar Firebase JS SDK via CDN para obtener el token FCM
+                if (typeof firebase === 'undefined') return;
+                const messaging = firebase.messaging();
+                const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: reg });
+                if (token) {
+                    console.log('[FCM] Token obtenido:', token);
+                    await fetch(API_BASE + '/api/fcm-token', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ usuario_id: currentUserId, fcm_token: token })
+                    });
+                }
+            } catch(e) {
+                console.warn('[FCM] Error registrando FCM:', e);
+            }
+        }
+
+        // ── Ventana EMA: comprobar estado y mostrar UI correcta ───────────
+        async function comprobarVentana() {
+            // Mostrar loader
+            ['ema-cargando','ema-sin-ventana','ema-pendiente','ema-abierta','ema-cerrada','ema-respondida']
+                .forEach(id => document.getElementById(id).style.display = 'none');
+            document.getElementById('ema-cargando').style.display = 'block';
+
+            // Limpiar countdown previo
+            if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+
+            try {
+                const resp = await fetch(API_BASE + '/api/ventana/' + currentUserId);
+                const data = await resp.json();
+                document.getElementById('ema-cargando').style.display = 'none';
+
+                switch(data.estado) {
+                    case 'sin_ventana':
+                        document.getElementById('ema-sin-ventana').style.display = 'block';
+                        break;
+
+                    case 'pendiente':
+                        document.getElementById('ema-pendiente').style.display = 'block';
+                        if (data.hora_notificacion) {
+                            const hora = new Date(data.hora_notificacion);
+                            document.getElementById('ema-hora-llegada').textContent =
+                                hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                        }
+                        // Recomprobar en 60 segundos por si ya llegó la hora
+                        setTimeout(comprobarVentana, 60000);
+                        break;
+
+                    case 'abierta':
+                        document.getElementById('ema-abierta').style.display = 'block';
+                        iniciarCountdown(data.minutos_restantes);
+                        break;
+
+                    case 'cerrada':
+                        document.getElementById('ema-cerrada').style.display = 'block';
+                        // Romper racha visualmente
+                        actualizarRacha();
+                        break;
+
+                    case 'respondida':
+                        document.getElementById('ema-respondida').style.display = 'block';
+                        break;
+
+                    default:
+                        document.getElementById('ema-sin-ventana').style.display = 'block';
+                }
+            } catch(e) {
+                document.getElementById('ema-cargando').style.display = 'none';
+                document.getElementById('ema-sin-ventana').style.display = 'block';
+                console.error('[VENTANA] Error:', e);
+            }
+        }
+
+        function iniciarCountdown(minutosRestantes) {
+            let segundos = minutosRestantes * 60;
+            const el = document.getElementById('ema-countdown');
+
+            function tick() {
+                if (segundos <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                    comprobarVentana(); // la ventana cerró → actualizar UI
+                    return;
+                }
+                const m = String(Math.floor(segundos / 60)).padStart(2, '0');
+                const s = String(segundos % 60).padStart(2, '0');
+                el.textContent = m + ':' + s;
+                segundos--;
+            }
+            tick();
+            countdownInterval = setInterval(tick, 1000);
+        }
+
         function abrirModal() {
             // Resetear estado por si ya se había enviado antes
             document.getElementById('modal-content-form').style.display = 'block';
@@ -1319,6 +1510,20 @@
             document.getElementById('modal-content-ok').style.display   = 'block';
             setTimeout(() => cerrarModalDirecto(), 2200);
         }
+    </script>
+
+    <!-- Firebase SDK (para obtener token FCM en el navegador/WebView) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+    <script>
+        firebase.initializeApp({
+            apiKey:            "AIzaSyD8MhMCOUPIlHd8AK-F_eFiVdyDGKOpy0U",
+            authDomain:        "altoyclaro-tfg.firebaseapp.com",
+            projectId:         "altoyclaro-tfg",
+            storageBucket:     "altoyclaro-tfg.firebasestorage.app",
+            messagingSenderId: "800858574197",
+            appId:             "1:800858574197:android:d83a20422a6cdb9104173c"
+        });
     </script>
 </body>
 </html>

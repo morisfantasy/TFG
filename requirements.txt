@@ -7,3 +7,6 @@ uvicorn[standard]
 pydantic
 psycopg2-binary
 bcrypt
+pytz
+APScheduler==3.10.4
+cryptography

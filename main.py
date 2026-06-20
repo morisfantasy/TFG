@@ -1,11 +1,16 @@
 import os
 import json
 import secrets
+import random
 import urllib.request
 import urllib.error
+import urllib.parse
+from datetime import datetime, timedelta
+import pytz
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import bcrypt
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Silenciar logs de TensorFlow
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -81,6 +86,165 @@ def enviar_email_verificacion(email_destino: str, token: str, nombre: str):
     except Exception as e:
         print(f"[EMAIL] ❌ Error inesperado: {type(e).__name__}: {e}")
 
+
+# ── Configuración FCM (Firebase Cloud Messaging API V1) ──────────────────────
+# Credenciales de cuenta de servicio Firebase (cargadas desde variable de entorno)
+FIREBASE_CREDENTIALS = json.loads(os.getenv("FIREBASE_CREDENTIALS", "{}"))
+FIREBASE_PROJECT_ID  = FIREBASE_CREDENTIALS.get("project_id", "altoyclaro-tfg")
+
+def obtener_access_token_fcm():
+    """Obtiene un OAuth2 access token para la API FCM V1 usando JWT firmado con RSA."""
+    import time
+    import base64
+    import hmac
+    import hashlib
+
+    creds = FIREBASE_CREDENTIALS
+    if not creds:
+        print("[FCM] FIREBASE_CREDENTIALS no configurado.")
+        return None
+
+    # Header y claims del JWT
+    now = int(time.time())
+    header  = base64.urlsafe_b64encode(json.dumps({"alg":"RS256","typ":"JWT"}).encode()).rstrip(b"=")
+    payload = base64.urlsafe_b64encode(json.dumps({
+        "iss":   creds["client_email"],
+        "sub":   creds["client_email"],
+        "aud":   "https://oauth2.googleapis.com/token",
+        "iat":   now,
+        "exp":   now + 3600,
+        "scope": "https://www.googleapis.com/auth/firebase.messaging"
+    }).encode()).rstrip(b"=")
+
+    signing_input = header + b"." + payload
+
+    # Firmar con la clave privada RSA usando cryptography
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+        private_key = serialization.load_pem_private_key(
+            creds["private_key"].encode(), password=None
+        )
+        signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
+        sig_b64 = base64.urlsafe_b64encode(signature).rstrip(b"=")
+        jwt_token = (signing_input + b"." + sig_b64).decode()
+    except Exception as e:
+        print(f"[FCM] Error firmando JWT: {e}")
+        return None
+
+    # Intercambiar JWT por access token
+    token_payload = urllib.parse.urlencode({
+        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "assertion":  jwt_token
+    }).encode()
+    req = urllib.request.Request(
+        "https://oauth2.googleapis.com/token",
+        data=token_payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+            return data.get("access_token")
+    except Exception as e:
+        print(f"[FCM] Error obteniendo access token: {e}")
+        return None
+
+def enviar_push_fcm(fcm_token, titulo, cuerpo):
+    if not fcm_token:
+        print("[FCM] Sin token FCM.")
+        return
+
+    access_token = obtener_access_token_fcm()
+    if not access_token:
+        print("[FCM] No se pudo obtener access token.")
+        return
+
+    payload = json.dumps({
+        "message": {
+            "token": fcm_token,
+            "notification": {"title": titulo, "body": cuerpo},
+            "android": {"priority": "high"},
+            "apns": {"headers": {"apns-priority": "10"}},
+            "data": {"tipo": "ema_diario"}
+        }
+    }).encode("utf-8")
+
+    url = f"https://fcm.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/messages:send"
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            print(f"[FCM] Push enviado OK: {resp.read().decode()}")
+    except urllib.error.HTTPError as e:
+        print(f"[FCM] HTTP error {e.code}: {e.read().decode()}")
+    except Exception as e:
+        print(f"[FCM] Error: {type(e).__name__}: {e}")
+
+def programar_ventanas_diarias():
+    print("[SCHEDULER] Programando ventanas diarias...")
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre_usuario, fcm_token, region FROM usuarios WHERE email_verificado = TRUE")
+        usuarios = cursor.fetchall()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"[SCHEDULER] Error obteniendo usuarios: {e}")
+        return
+
+    for u in usuarios:
+        usuario_id = u["id"]
+        nombre     = u["nombre_usuario"]
+        fcm_token  = u["fcm_token"]
+        tz_str     = u["region"] or "Europe/Madrid"
+        try:
+            tz = pytz.timezone(tz_str)
+        except Exception:
+            tz = pytz.timezone("Europe/Madrid")
+
+        hora_random   = random.randint(8, 22)
+        minuto_random = random.randint(0, 59)
+        hoy_local = datetime.now(tz).date()
+        dt_local  = tz.localize(datetime(hoy_local.year, hoy_local.month, hoy_local.day, hora_random, minuto_random, 0))
+        dt_utc    = dt_local.astimezone(pytz.utc)
+        dt_cierre = dt_utc + timedelta(minutes=30)
+
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO ventanas_diarias (usuario_id, fecha, hora_notificacion, hora_cierre, respondida) VALUES (%s, %s, %s, %s, FALSE) ON CONFLICT (usuario_id, fecha) DO NOTHING",
+                (usuario_id, hoy_local, dt_utc, dt_cierre)
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"[SCHEDULER] Error insertando ventana para {nombre}: {e}")
+            continue
+
+        delay = (dt_utc - datetime.now(pytz.utc)).total_seconds()
+        if delay > 0 and fcm_token:
+            scheduler.add_job(
+                enviar_push_fcm, "date", run_date=dt_utc,
+                args=[fcm_token, "Alto y Claro", "Tomaté un momento. Como estas ahora mismo?"],
+                id=f"push_{usuario_id}_{hoy_local}", replace_existing=True
+            )
+            print(f"[SCHEDULER] Push para {nombre} a las {dt_local.strftime('%H:%M')} ({tz_str})")
+        else:
+            print(f"[SCHEDULER] {nombre}: ventana ya pasada o sin token")
+
+    print("[SCHEDULER] Programacion completada.")
+
 # ── Inicializar app y modelo ──────────────────────────────────────────────────
 app = FastAPI(title="API - Análisis Emocional TFG")
 
@@ -90,6 +254,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+scheduler = BackgroundScheduler(timezone=pytz.utc)
+scheduler.add_job(programar_ventanas_diarias, "cron", hour=0, minute=0, id="prog_diario")
+scheduler.add_job(programar_ventanas_diarias, "date", run_date=datetime.now(pytz.utc) + timedelta(seconds=30), id="prog_arranque")
+scheduler.start()
+print("[SCHEDULER] Scheduler iniciado.")
 
 print("Cargando modelo RoBERTuito... (esto puede tardar unos segundos)")
 emotion_analyzer = create_analyzer(task="emotion", lang="es")
@@ -106,6 +276,10 @@ COORDENADAS_EKMAN = {
 }
 
 # ── Modelos de datos ──────────────────────────────────────────────────────────
+class FcmToken(BaseModel):
+    usuario_id: int
+    fcm_token:  str
+
 class UsuarioRegistro(BaseModel):
     nombre_usuario: str
     password: str
@@ -219,6 +393,8 @@ async def analizar(payload: TextoEMA):
         conn.close()
     except Exception as e:
         print("Error guardando en DB:", e)
+
+    marcar_ventana_respondida(payload.usuario_id)
 
     return {
         "valencia": x_escalado,
@@ -363,8 +539,76 @@ def reenviar_verificacion(payload: ReenvioVerificacion):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Endpoint: guardar token FCM ───────────────────────────────────────────────
+@app.post("/api/fcm-token")
+def guardar_fcm_token(payload: FcmToken):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE usuarios SET fcm_token = %s WHERE id = %s", (payload.fcm_token, payload.usuario_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"mensaje": "Token FCM guardado."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Endpoint: estado ventana diaria ──────────────────────────────────────────
+@app.get("/api/ventana/{usuario_id}")
+def obtener_ventana(usuario_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT v.hora_notificacion, v.hora_cierre, v.respondida FROM ventanas_diarias v WHERE v.usuario_id = %s AND v.fecha = CURRENT_DATE",
+            (usuario_id,)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return {"estado": "sin_ventana"}
+
+        ahora       = datetime.now(pytz.utc)
+        hora_notif  = row["hora_notificacion"]
+        hora_cierre = row["hora_cierre"]
+        if hora_notif.tzinfo is None:
+            hora_notif  = pytz.utc.localize(hora_notif)
+        if hora_cierre.tzinfo is None:
+            hora_cierre = pytz.utc.localize(hora_cierre)
+
+        if row["respondida"]:
+            return {"estado": "respondida"}
+        if ahora < hora_notif:
+            return {"estado": "pendiente", "hora_notificacion": hora_notif.isoformat()}
+        if hora_notif <= ahora <= hora_cierre:
+            mins = int((hora_cierre - ahora).total_seconds() / 60)
+            return {"estado": "abierta", "minutos_restantes": mins}
+        return {"estado": "cerrada"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def marcar_ventana_respondida(usuario_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE ventanas_diarias SET respondida = TRUE WHERE usuario_id = %s AND fecha = CURRENT_DATE",
+            (usuario_id,)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"[VENTANA] Error: {e}")
+
 # ── Servir la interfaz gráfica ─────────────────────────────────────────────────
 @app.get("/")
 def root():
-    # Cuando alguien entre a la URL principal, le mostramos el HTML de la app
     return FileResponse("frontend.html")
+
+@app.get("/firebase-messaging-sw.js")
+def service_worker():
+    return FileResponse("firebase-messaging-sw.js", media_type="application/javascript")
