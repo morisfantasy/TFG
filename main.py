@@ -396,6 +396,8 @@ async def analizar(payload: TextoEMA):
 
     marcar_ventana_respondida(payload.usuario_id)
 
+    alerta_activa = detectar_riesgo_emocional(payload.usuario_id)
+
     return {
         "valencia": x_escalado,
         "activacion": y_escalado,
