@@ -411,11 +411,12 @@ def obtener_historial(usuario_id: int):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            """SELECT TO_CHAR(fecha_respuesta, 'DD/MM/YYYY') as fecha, 
-                      valencia as x, activacion as y, emocion_dominante as emocion, respuesta_1 
-               FROM registros_ema 
-               WHERE usuario_id = %s 
-               ORDER BY fecha_respuesta ASC""", 
+            """SELECT DISTINCT ON (DATE(fecha_respuesta))
+                      TO_CHAR(fecha_respuesta, 'DD/MM/YYYY') as fecha,
+                      valencia as x, activacion as y, emocion_dominante as emocion, respuesta_1
+               FROM registros_ema
+               WHERE usuario_id = %s
+               ORDER BY DATE(fecha_respuesta) ASC, fecha_respuesta DESC""",
             (usuario_id,)
         )
         rows = cursor.fetchall()

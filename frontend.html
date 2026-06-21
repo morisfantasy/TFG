@@ -495,6 +495,75 @@
         }
         .btn-logout i { font-size: 12px; }
 
+        /* ── Pantalla de emergencia ── */
+        #emergencia-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: #FFFFFF;
+            z-index: 500;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            text-align: center;
+        }
+        #emergencia-overlay.activa {
+            display: flex;
+        }
+        .emergencia-icono {
+            font-size: 52px;
+            margin-bottom: 20px;
+        }
+        .emergencia-titulo {
+            font-size: 20px;
+            font-weight: 800;
+            color: #1E293B;
+            margin-bottom: 12px;
+            line-height: 1.3;
+        }
+        .emergencia-texto {
+            font-size: 14px;
+            color: #64748B;
+            line-height: 1.7;
+            margin-bottom: 28px;
+        }
+        .btn-telefono {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px;
+            background: #E53935;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            text-decoration: none;
+            margin-bottom: 12px;
+        }
+        .btn-continuar-emergencia {
+            width: 100%;
+            padding: 12px;
+            background: none;
+            border: 1.5px solid var(--border-color);
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .emergencia-disclaimer {
+            font-size: 11px;
+            color: #94A3B8;
+            margin-top: 16px;
+            line-height: 1.5;
+        }
+
         /* ── Contador de racha ── */
         .streak-badge {
             display: flex;
@@ -513,10 +582,12 @@
             filter: drop-shadow(0 0 4px rgba(255, 140, 0, 0.6));
         }
         .streak-badge .streak-number {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 800;
             color: #E65100;
             line-height: 1;
+            min-width: 28px;
+            text-align: center;
         }
         .streak-badge .streak-label {
             font-size: 10px;
@@ -708,10 +779,6 @@
                 <p style="font-size: 14px; margin-bottom: 0;" id="emocion-label">Modelo Circumplejo del Afecto</p>
                 
                 <div class="chart-wrapper">
-                    <span class="quadrant-label q-tl">Estrés</span>
-                    <span class="quadrant-label q-tr">Alerta Positiva</span>
-                    <span class="quadrant-label q-bl">Tristeza/Letargo</span>
-                    <span class="quadrant-label q-br">Calma/Relajación</span>
                     <canvas id="circumplexChart"></canvas>
                 </div>
             </div>
@@ -815,6 +882,31 @@
                     Volver al inicio de sesión
                 </button>
             </div>
+        </div>
+
+        <!-- PANTALLA DE EMERGENCIA (se superpone a todo) -->
+        <div id="emergencia-overlay">
+            <div class="emergencia-icono">🤍</div>
+            <h2 class="emergencia-titulo">Llevamos unos días difíciles juntos</h2>
+            <p class="emergencia-texto">
+                Hemos notado que te has sentido muy bajo durante varios días seguidos.
+                Esto es completamente válido, y queremos que sepas que no estás solo.<br><br>
+                Hablar con alguien puede marcar una gran diferencia.
+                En España puedes llamar ahora mismo, es gratuito y confidencial.
+            </p>
+            <a href="tel:024" class="btn-telefono">
+                <i class="fa-solid fa-phone"></i> Teléfono de la Esperanza · 024
+            </a>
+            <a href="tel:717003717" class="btn-telefono" style="background:#7BA098;font-size:15px;">
+                <i class="fa-solid fa-phone"></i> Teléfono de la Esperanza · 717 003 717
+            </a>
+            <button class="btn-continuar-emergencia" onclick="cerrarEmergencia()">
+                Estoy bien, continuar a la aplicación
+            </button>
+            <p class="emergencia-disclaimer">
+                Esta pantalla aparece cuando detectamos un patrón de malestar prolongado.<br>
+                No somos psicólogos ni emitimos diagnósticos — solo nos importas.
+            </p>
         </div>
 
         <!-- NAV INFERIOR -->
@@ -1114,10 +1206,15 @@
 
                 if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
 
-                const homeTab = document.querySelector('.nav-item:nth-child(1)');
-                navigate('home-screen', homeTab);
-                renderizarDia();
-                showToast();
+                // Comprobar si hay alerta de emergencia
+                if (data.alerta_emergencia) {
+                    mostrarEmergencia();
+                } else {
+                    const homeTab = document.querySelector('.nav-item:nth-child(1)');
+                    navigate('home-screen', homeTab);
+                    renderizarDia();
+                    showToast();
+                }
 
             } catch (err) {
                 alert('Fallo de conexión con el servidor: ' + err.message);
@@ -1327,7 +1424,7 @@
                             ticks: { display: false },
                             title: {
                                 display: true,
-                                text: 'Valencia (Negativa ➔ Positiva)',
+                                text: '← Peor me siento    Mejor me siento →',
                                 color: '#64748B',
                                 font: { size: 12, family: 'Nunito' }
                             }
@@ -1344,7 +1441,7 @@
                             ticks: { display: false },
                             title: {
                                 display: true,
-                                text: 'Activación (Baja ➔ Alta)',
+                                text: '↑ Más activo / ↓ Más tranquilo',
                                 color: '#64748B',
                                 font: { size: 10, family: 'Nunito' }
                             }
@@ -1551,6 +1648,18 @@
             }
             tick();
             countdownInterval = setInterval(tick, 1000);
+        }
+
+        function mostrarEmergencia() {
+            document.getElementById('emergencia-overlay').classList.add('activa');
+        }
+
+        function cerrarEmergencia() {
+            document.getElementById('emergencia-overlay').classList.remove('activa');
+            const homeTab = document.querySelector('.nav-item:nth-child(1)');
+            navigate('home-screen', homeTab);
+            renderizarDia();
+            showToast();
         }
 
         function abrirModal() {
