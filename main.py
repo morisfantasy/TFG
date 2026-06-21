@@ -216,7 +216,7 @@ def programar_ventanas_diarias():
         hoy_local = datetime.now(tz).date()
         dt_local  = tz.localize(datetime(hoy_local.year, hoy_local.month, hoy_local.day, hora_random, minuto_random, 0))
         dt_utc    = dt_local.astimezone(pytz.utc)
-        dt_cierre = dt_utc + timedelta(minutes=31)
+        dt_cierre = dt_utc + timedelta(minutes=30)
 
         try:
             conn = get_db_connection()
@@ -400,7 +400,8 @@ async def analizar(payload: TextoEMA):
         "valencia": x_escalado,
         "activacion": y_escalado,
         "emocion_dominante": emocion_dom,
-        "respuesta_1": payload.respuesta_1
+        "respuesta_1": payload.respuesta_1,
+        "alerta_emergencia": alerta_activa
     }
 
 # ── Endpoint para obtener el historial del usuario ─────────────────────────────
@@ -539,6 +540,41 @@ def reenviar_verificacion(payload: ReenvioVerificacion):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Detector de riesgo emocional sostenido ───────────────────────────────────
+def detectar_riesgo_emocional(usuario_id: int) -> bool:
+    """
+    Devuelve True si los últimos 5 registros tienen una media de valencia <= -5.0.
+    Umbral basado en el cuadrante de tristeza/letargo del modelo circumplejo de Russell.
+    Referencia: afecto negativo de baja activación sostenido durante varios días
+    es el indicador más consistente de episodio depresivo en estudios EMA
+    (Trull et al., 2008; Barge-Schaapveld et al., 1999).
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT valencia FROM registros_ema
+               WHERE usuario_id = %s
+               ORDER BY fecha_respuesta DESC
+               LIMIT 5""",
+            (usuario_id,)
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if len(rows) < 5:
+            return False  # No hay suficientes datos aún
+
+        media_valencia = sum(float(r['valencia']) for r in rows) / len(rows)
+        print(f"[ALERTA] Usuario {usuario_id} — media valencia últimos 5 registros: {media_valencia:.2f}")
+
+        return media_valencia <= -5.0
+
+    except Exception as e:
+        print(f"[ALERTA] Error en detección de riesgo: {e}")
+        return False
 
 # ── Endpoint: guardar token FCM ───────────────────────────────────────────────
 @app.post("/api/fcm-token")

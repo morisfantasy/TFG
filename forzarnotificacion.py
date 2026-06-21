@@ -26,7 +26,7 @@ from psycopg2.extras import RealDictCursor
 # ── CONFIGURACIÓN ─────────────────────────────────────────────────────────────
 # Copia aquí los mismos valores que tienes en Railway
 
-DATABASE_URL = "postgresql://postgres:tiemIIuXFeyYlyPymQMibMCfkeJebpwI@thomas.proxy.rlwy.net:15866/railway" 
+DATABASE_URL = "TUpostgresql://postgres:tiemIIuXFeyYlyPymQMibMCfkeJebpwI@thomas.proxy.rlwy.net:15866/railway"
 
 FIREBASE_CREDENTIALS = {
     "type": "service_account",
@@ -117,7 +117,7 @@ def forzar_ventana(usuario_id):
     cursor = conn.cursor()
 
     ahora_utc  = datetime.now(pytz.utc)
-    cierre_utc = ahora_utc + timedelta(minutes=31)
+    cierre_utc = ahora_utc + timedelta(minutes=30)
     hoy        = ahora_utc.date()
 
     cursor.execute("""
