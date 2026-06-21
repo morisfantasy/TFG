@@ -1510,6 +1510,8 @@
             if (chartInstance)     { chartInstance.destroy(); chartInstance = null; }
             historial  = [];
             diaActual  = 0;
+            // Ocultar pantalla de emergencia si estaba activa
+            document.getElementById('emergencia-overlay').classList.remove('activa');
             volverAlLogin();
         }
 
