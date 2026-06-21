@@ -584,8 +584,8 @@ def obtener_ventana(usuario_id: int):
         if ahora < hora_notif:
             return {"estado": "pendiente", "hora_notificacion": hora_notif.isoformat()}
         if hora_notif <= ahora <= hora_cierre:
-            mins = int((hora_cierre - ahora).total_seconds() / 60)
-            return {"estado": "abierta", "minutos_restantes": mins}
+            segundos = int((hora_cierre - ahora).total_seconds())
+            return {"estado": "abierta", "segundos_restantes": segundos}
         return {"estado": "cerrada"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

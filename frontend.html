@@ -1510,7 +1510,7 @@
 
                     case 'abierta':
                         document.getElementById('ema-abierta').style.display = 'block';
-                        iniciarCountdown(data.minutos_restantes);
+                        iniciarCountdown(data.segundos_restantes);
                         break;
 
                     case 'cerrada':
@@ -1533,8 +1533,8 @@
             }
         }
 
-        function iniciarCountdown(minutosRestantes) {
-            let segundos = minutosRestantes * 60;
+        function iniciarCountdown(segundosRestantes) {
+            let segundos = segundosRestantes;
             const el = document.getElementById('ema-countdown');
 
             function tick() {

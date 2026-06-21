@@ -26,7 +26,7 @@ from psycopg2.extras import RealDictCursor
 # ── CONFIGURACIÓN ─────────────────────────────────────────────────────────────
 # Copia aquí los mismos valores que tienes en Railway
 
-DATABASE_URL = "postgresql://postgres:tiemIIuXFeyYlyPymQMibMCfkeJebpwI@thomas.proxy.rlwy.net:15866/railway"  # ← cambia esto
+DATABASE_URL = "postgresql://postgres:tiemIIuXFeyYlyPymQMibMCfkeJebpwI@thomas.proxy.rlwy.net:15866/railway" 
 
 FIREBASE_CREDENTIALS = {
     "type": "service_account",
