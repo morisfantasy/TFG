@@ -474,6 +474,27 @@
             cursor: pointer;
         }
 
+        /* ── Botón cerrar sesión ── */
+        .btn-logout {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: var(--surface-color);
+            border: 1.5px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .btn-logout:hover {
+            border-color: #E53935;
+            color: #E53935;
+        }
+        .btn-logout i { font-size: 12px; }
+
         /* ── Contador de racha ── */
         .streak-badge {
             display: flex;
@@ -661,8 +682,8 @@
         <!-- PANTALLA PRINCIPAL (HOME) -->
         <div id="home-screen" class="screen">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-top:20px; margin-bottom:4px;">
-                <button class="btn-valorar-trigger" onclick="abrirModal()">
-                    <i class="fa-solid fa-star"></i> Valorar
+                <button class="btn-logout" onclick="cerrarSesion()" title="Cerrar sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i> Salir
                 </button>
                 <div id="streak-badge" class="streak-badge streak-zero" title="Días seguidos respondiendo">
                     <span class="streak-flame">🔥</span>
@@ -1358,7 +1379,6 @@
 
         function volverAlLogin() {
             if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
-            // Limpiar sesión guardada
             localStorage.removeItem('ac_usuario_id');
             localStorage.removeItem('ac_nombre_usuario');
             currentUserId = null;
@@ -1366,6 +1386,14 @@
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById('login-screen').classList.add('active');
             toggleAuth('login');
+        }
+
+        function cerrarSesion() {
+            if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+            if (chartInstance)     { chartInstance.destroy(); chartInstance = null; }
+            historial  = [];
+            diaActual  = 0;
+            volverAlLogin();
         }
 
         async function reenviarVerificacion() {

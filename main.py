@@ -216,7 +216,7 @@ def programar_ventanas_diarias():
         hoy_local = datetime.now(tz).date()
         dt_local  = tz.localize(datetime(hoy_local.year, hoy_local.month, hoy_local.day, hora_random, minuto_random, 0))
         dt_utc    = dt_local.astimezone(pytz.utc)
-        dt_cierre = dt_utc + timedelta(minutes=30)
+        dt_cierre = dt_utc + timedelta(minutes=31)
 
         try:
             conn = get_db_connection()
