@@ -530,7 +530,7 @@
         <!-- PANTALLA DE LOGIN / REGISTRO -->
         <div id="login-screen" class="screen active" style="padding-top: 40px;">
             <div class="logo-container">
-                <i class="fa-solid fa-leaf"></i>
+                <i class="fa-solid fa-dog"></i>
                 <h1>Alto y Claro</h1>
                 <p>Tu espacio seguro de reflexión</p>
             </div>
@@ -823,7 +823,38 @@
         let countdownInterval = null;
 
         const API_BASE = 'https://tfg-production-db76.up.railway.app';
-        const FCM_VAPID_KEY = 'AIzaSyD8MhMCOUPIlHd8AK-F_eFiVdyDGKOpy0U'; 
+        const FCM_VAPID_KEY = 'AIzaSyD8MhMCOUPIlHd8AK-F_eFiVdyDGKOpy0U';
+
+        // ── Restaurar sesión al arrancar ──────────────────────────────────
+        async function restaurarSesion() {
+            const savedId   = localStorage.getItem('ac_usuario_id');
+            const savedName = localStorage.getItem('ac_nombre_usuario');
+            if (!savedId) return; // No hay sesión guardada
+
+            try {
+                // Verificar que la sesión sigue siendo válida
+                const resp = await fetch(API_BASE + '/api/estado-verificacion/' + savedId);
+                if (!resp.ok) throw new Error('Sesión inválida');
+                const data = await resp.json();
+                if (!data.verificado) throw new Error('No verificado');
+
+                // Sesión válida — entrar directamente
+                currentUserId = parseInt(savedId);
+                document.getElementById('user-name-display').textContent = savedName;
+                await cargarHistorialReal();
+                await registrarFCM();
+                document.getElementById('bottom-nav').style.display = 'flex';
+                const homeTab = document.querySelector('.nav-item:nth-child(1)');
+                navigate('home-screen', homeTab);
+            } catch(e) {
+                // Sesión inválida — limpiar y mostrar login
+                localStorage.removeItem('ac_usuario_id');
+                localStorage.removeItem('ac_nombre_usuario');
+            }
+        }
+
+        // Ejecutar al cargar la página
+        window.addEventListener('load', restaurarSesion); 
 
         function toggleAuth(modo) {
             authMode = modo;
@@ -1008,8 +1039,10 @@
                     return;
                 }
 
-                // Login exitoso → entrar a la app
+                // Login exitoso → guardar sesión y entrar a la app
                 currentUserId = data.usuario_id;
+                localStorage.setItem('ac_usuario_id',   data.usuario_id);
+                localStorage.setItem('ac_nombre_usuario', data.nombre_usuario || user);
                 document.getElementById('user-name-display').textContent = data.nombre_usuario || user;
                 await cargarHistorialReal();
                 await registrarFCM();
@@ -1325,6 +1358,11 @@
 
         function volverAlLogin() {
             if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+            // Limpiar sesión guardada
+            localStorage.removeItem('ac_usuario_id');
+            localStorage.removeItem('ac_nombre_usuario');
+            currentUserId = null;
+            document.getElementById('bottom-nav').style.display = 'none';
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById('login-screen').classList.add('active');
             toggleAuth('login');
@@ -1355,10 +1393,13 @@
                         if (d.verificado) {
                             clearInterval(pollingInterval);
                             pollingInterval = null;
-                            // Entrar a la app automáticamente
+                            // Entrar a la app automáticamente y guardar sesión
                             currentUserId = usuarioId;
+                            localStorage.setItem('ac_usuario_id',    usuarioId);
+                            localStorage.setItem('ac_nombre_usuario', d.nombre_usuario);
                             document.getElementById('user-name-display').textContent = d.nombre_usuario;
                             await cargarHistorialReal();
+                            await registrarFCM();
                             document.getElementById('bottom-nav').style.display = 'flex';
                             const homeTab = document.querySelector('.nav-item:nth-child(1)');
                             navigate('home-screen', homeTab);
