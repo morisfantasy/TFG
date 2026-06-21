@@ -353,7 +353,14 @@ def login_usuario(user: UsuarioLogin):
     if not db_user['email_verificado']:
         raise HTTPException(status_code=403, detail="Cuenta sin verificar. Revisa tu correo y confirma tu cuenta antes de entrar.")
 
-    return {"mensaje": "Login exitoso", "usuario_id": db_user['id'], "nombre_usuario": db_user['nombre_usuario']}
+    alerta_activa = detectar_riesgo_emocional(db_user['id'])
+
+    return {
+        "mensaje": "Login exitoso",
+        "usuario_id": db_user['id'],
+        "nombre_usuario": db_user['nombre_usuario'],
+        "alerta_emergencia": alerta_activa
+    }
 
 # ── Endpoint principal de Análisis ────────────────────────────────────────────
 @app.post("/api/analizar")

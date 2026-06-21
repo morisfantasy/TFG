@@ -900,9 +900,6 @@
             <a href="tel:717003717" class="btn-telefono" style="background:#7BA098;font-size:15px;">
                 <i class="fa-solid fa-phone"></i> Teléfono de la Esperanza · 717 003 717
             </a>
-            <button class="btn-continuar-emergencia" onclick="cerrarEmergencia()">
-                Estoy bien, continuar a la aplicación
-            </button>
             <p class="emergencia-disclaimer">
                 Esta pantalla aparece cuando detectamos un patrón de malestar prolongado.<br>
                 No somos psicólogos ni emitimos diagnósticos — solo nos importas.
@@ -951,14 +948,25 @@
                 const data = await resp.json();
                 if (!data.verificado) throw new Error('No verificado');
 
-                // Sesión válida — entrar directamente
+                // Sesión válida — comprobar alerta antes de entrar
                 currentUserId = parseInt(savedId);
                 document.getElementById('user-name-display').textContent = savedName;
                 await cargarHistorialReal();
                 await registrarFCM();
                 document.getElementById('bottom-nav').style.display = 'flex';
-                const homeTab = document.querySelector('.nav-item:nth-child(1)');
-                navigate('home-screen', homeTab);
+
+                // Verificar alerta de emergencia
+                const ventanaResp = await fetch(API_BASE + '/api/historial/' + savedId);
+                const historialData = await ventanaResp.json();
+                const mediaValencia = historialData.length >= 5
+                    ? historialData.slice(-5).reduce((s, h) => s + parseFloat(h.x), 0) / 5
+                    : 0;
+                if (mediaValencia <= -5.0) {
+                    mostrarEmergencia();
+                } else {
+                    const homeTab = document.querySelector('.nav-item:nth-child(1)');
+                    navigate('home-screen', homeTab);
+                }
             } catch(e) {
                 // Sesión inválida — limpiar y mostrar login
                 localStorage.removeItem('ac_usuario_id');
@@ -1152,16 +1160,23 @@
                     return;
                 }
 
-                // Login exitoso → guardar sesión y entrar a la app
+                // Login exitoso → guardar sesión
                 currentUserId = data.usuario_id;
                 localStorage.setItem('ac_usuario_id',   data.usuario_id);
                 localStorage.setItem('ac_nombre_usuario', data.nombre_usuario || user);
                 document.getElementById('user-name-display').textContent = data.nombre_usuario || user;
                 await cargarHistorialReal();
                 await registrarFCM();
-                document.getElementById('bottom-nav').style.display = 'flex';
-                const homeTab = document.querySelector('.nav-item:nth-child(1)');
-                navigate('home-screen', homeTab);
+
+                // Comprobar alerta de emergencia antes de entrar
+                if (data.alerta_emergencia) {
+                    document.getElementById('bottom-nav').style.display = 'flex';
+                    mostrarEmergencia();
+                } else {
+                    document.getElementById('bottom-nav').style.display = 'flex';
+                    const homeTab = document.querySelector('.nav-item:nth-child(1)');
+                    navigate('home-screen', homeTab);
+                }
 
             } catch(e) {
                 mostrarErrorLogin(e.message);
