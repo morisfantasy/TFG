@@ -145,18 +145,19 @@
         }
         .quadrant-label {
             position: absolute;
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 700;
             color: var(--text-muted);
-            opacity: 0.7;
+            opacity: 0.75;
             padding: 4px 8px;
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.85);
             z-index: 10;
+            pointer-events: none;
         }
-        .q-tl { top: 10%; left: 5%; }
+        .q-tl { top: 10%; left: 10%; }
         .q-tr { top: 10%; right: 5%; }
-        .q-bl { bottom: 15%; left: 5%; }
+        .q-bl { bottom: 15%; left: 10%; }
         .q-br { bottom: 15%; right: 5%; }
 
         #bottom-nav {
@@ -354,10 +355,6 @@
             font-size: 14px;
             line-height: 1.6;
             margin-bottom: 0;
-        }
-        .ema-estado .hora-llegada {
-            font-weight: 700;
-            color: var(--primary-color);
         }
         #ema-countdown {
             font-size: 28px;
@@ -680,14 +677,14 @@
 
             <div class="card">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                    <h3 style="font-size: 16px; margin-bottom: 0;">Tu Mapa Emocional</h3>
+                    <h3 style="font-size: 18px; margin-bottom: 0;">Tu Mapa Emocional</h3>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <button id="btn-prev" onclick="navegarDia(-1)" style="background:var(--bg-color);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--primary-color);" disabled>◀</button>
-                        <span id="dia-label" style="font-size:12px;color:var(--text-muted);min-width:60px;text-align:center;">Hoy</span>
+                        <span id="dia-label" style="font-size:14px;color:var(--text-muted);min-width:60px;text-align:center;">Hoy</span>
                         <button id="btn-next" onclick="navegarDia(1)" style="background:var(--bg-color);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--primary-color);" disabled>▶</button>
                     </div>
                 </div>
-                <p style="font-size: 12px; margin-bottom: 0;" id="emocion-label">Modelo Circumplejo del Afecto</p>
+                <p style="font-size: 14px; margin-bottom: 0;" id="emocion-label">Modelo Circumplejo del Afecto</p>
                 
                 <div class="chart-wrapper">
                     <span class="quadrant-label q-tl">Estrés</span>
@@ -717,11 +714,12 @@
 
             <!-- Estado: pendiente (notificación aún no ha llegado) -->
             <div id="ema-pendiente" class="ema-estado" style="display:none;">
-                <div class="ema-icono">⏰</div>
-                <h3>Tu momento del día está por llegar</h3>
-                <p>Hoy recibirás tu notificación a las<br>
-                   <span class="hora-llegada" id="ema-hora-llegada">--:--</span></p>
-                <p style="margin-top:12px;">Cuando llegue tendrás <strong>30 minutos</strong> para responder.</p>
+                <div class="ema-icono">🌱</div>
+                <h3>Aún no es el momento</h3>
+                <p>En algún momento del día recibirás una notificación.<br><br>
+                   Cuando llegue tendrás <strong>30 minutos</strong> para responder.<br><br>
+                   <span style="color:var(--text-muted);font-size:13px;">Estate atento, ¡puede llegar en cualquier momento!</span>
+                </p>
             </div>
 
             <!-- Estado: abierta (ventana activa, puede responder) -->
@@ -1190,16 +1188,16 @@
         function initChart() {
             const ctx = document.getElementById('circumplexChart').getContext('2d');
 
-            // Dataset 0: puntos de emoción (uno por emoción, con color propio)
+            // Dataset 0: puntos de emoción — rombos pequeños por cada emoción
             const emotionDatasets = EMOTION_ANCHORS.map(em => ({
                 label: em.label,
                 data: [{ x: em.x, y: em.y, label: em.label }],
-                backgroundColor: em.color + 'CC',  // algo de transparencia
+                backgroundColor: em.color + 'DD',
                 borderColor: em.color,
                 borderWidth: 1.5,
-                pointRadius: 7,
-                pointHoverRadius: 9,
-                pointStyle: 'circle',
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointStyle: 'rectRot',   // rombo en Chart.js
             }));
 
             // Dataset 6: momentos históricos fijos (4 puntos: 1sem, 1mes, 3meses, 1año)
@@ -1232,6 +1230,9 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: { left: 8, right: 8, top: 4, bottom: 4 }
+                    },
                     plugins: {
                         legend: { display: false },
                         tooltip: { 
@@ -1247,7 +1248,7 @@
                                     const dsLabel = context.dataset.label;
                                     // Puntos de emoción anclados
                                     if (raw.label && HISTORICAL_LABELS.indexOf(dsLabel) === -1 && dsLabel !== 'Estado actual' && dsLabel !== 'Momentos pasados') {
-                                        return '● ' + raw.label;
+                                        return '◆ ' + raw.label;
                                     }
                                     // Puntos históricos
                                     if (raw.historicalLabel) {
@@ -1263,24 +1264,28 @@
                         x: {
                             min: -10,
                             max: 10,
+                            clip: true,
                             grid: {
                                 color: (ctx) => ctx.tick.value === 0 ? '#CBD5E1' : '#F1F5F9',
-                                lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1
+                                lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1,
+                                drawBorder: false
                             },
                             ticks: { display: false },
                             title: {
                                 display: true,
                                 text: 'Valencia (Negativa ➔ Positiva)',
                                 color: '#64748B',
-                                font: { size: 10, family: 'Nunito' }
+                                font: { size: 12, family: 'Nunito' }
                             }
                         },
                         y: {
                             min: -10,
                             max: 10,
+                            clip: true,
                             grid: {
                                 color: (ctx) => ctx.tick.value === 0 ? '#CBD5E1' : '#F1F5F9',
-                                lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1
+                                lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1,
+                                drawBorder: false
                             },
                             ticks: { display: false },
                             title: {
@@ -1363,6 +1368,22 @@
             }, 5000);
         }
 
+        // ── FCM: recibir token desde la app Android nativa ──────────────
+        window.recibirTokenAndroid = async function(token) {
+            console.log('[FCM Android] Token recibido:', token);
+            if (!currentUserId || !token) return;
+            try {
+                await fetch(API_BASE + '/api/fcm-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario_id: currentUserId, fcm_token: token })
+                });
+                console.log('[FCM Android] Token guardado en servidor.');
+            } catch(e) {
+                console.warn('[FCM Android] Error guardando token:', e);
+            }
+        };
+
         // ── FCM: registrar service worker y obtener token ────────────────
         async function registrarFCM() {
             if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
@@ -1414,11 +1435,6 @@
 
                     case 'pendiente':
                         document.getElementById('ema-pendiente').style.display = 'block';
-                        if (data.hora_notificacion) {
-                            const hora = new Date(data.hora_notificacion);
-                            document.getElementById('ema-hora-llegada').textContent =
-                                hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                        }
                         // Recomprobar en 60 segundos por si ya llegó la hora
                         setTimeout(comprobarVentana, 60000);
                         break;

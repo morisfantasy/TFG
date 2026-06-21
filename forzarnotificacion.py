@@ -23,7 +23,7 @@ import pytz
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-DATABASE_URL = 'https://tfg-production-db76.up.railway.app'
+DATABASE_URL = "postgresql://postgres:tiemIIuXFeyYlyPymQMibMCfkeJebpwI@postgres-m-mf.railway.internal:5432/railway"
 
 FIREBASE_CREDENTIALS = {
     "type": "service_account",
